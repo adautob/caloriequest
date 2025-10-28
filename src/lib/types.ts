@@ -8,6 +8,7 @@ export type Meal = {
   protein: number;
   carbohydrates: number;
   fat: number;
+  fiber: number;
   date: string; // Changed from time to a full ISO date string
   createdAt: Timestamp;
 };
@@ -24,3 +25,5 @@ export type Achievement = {
   icon: LucideIcon;
   unlocked: boolean;
 };
+
+    

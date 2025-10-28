@@ -96,7 +96,7 @@ export default function MealList() {
                 <div className="text-right flex-shrink-0">
                   <p className="font-semibold">{meal.calories} kcal</p>
                   <p className="text-sm text-muted-foreground">
-                    P:{meal.protein}g C:{meal.carbohydrates}g F:{meal.fat}g
+                    P:{meal.protein}g C:{meal.carbohydrates}g F:{meal.fat}g Fib:{meal.fiber || 0}g
                   </p>
                 </div>
                  <AlertDialog>
@@ -133,3 +133,5 @@ export default function MealList() {
     </Card>
   );
 }
+
+    

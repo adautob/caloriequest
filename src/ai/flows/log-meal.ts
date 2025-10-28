@@ -21,6 +21,7 @@ const LogMealOutputSchema = z.object({
   protein: z.number().describe('Total de proteína em gramas na refeição.'),
   carbohydrates: z.number().describe('Total de carboidratos em gramas na refeição.'),
   fat: z.number().describe('Total de gordura em gramas na refeição.'),
+  fiber: z.number().describe('Total de fibras em gramas na refeição.'),
 });
 export type LogMealOutput = z.infer<typeof LogMealOutputSchema>;
 
@@ -42,6 +43,7 @@ Com base nisso, forneça as seguintes informações:
 - O total de proteína em gramas.
 - O total de carboidratos em gramas.
 - O total de gordura em gramas.
+- O total de fibras em gramas.
 
 Retorne os dados em um formato JSON estruturado.`,
 });
@@ -57,3 +59,5 @@ const logMealFlow = ai.defineFlow(
     return output!;
   }
 );
+
+    

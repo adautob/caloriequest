@@ -1,7 +1,7 @@
 'use server';
 
 import { projectWeightLossTimeline, ProjectWeightLossTimelineInput } from "@/ai/flows/project-weight-loss-timeline";
-import { logMeal, LogMealInput } from '@/ai/flows/log-meal';
+import { logMeal, LogMealOutput } from '@/ai/flows/log-meal';
 import { z } from "zod";
 
 // --- Goal Projection Action ---
@@ -71,13 +71,7 @@ const addMealFormSchema = z.object({
 
 type AddMealState = {
   message?: string | null;
-  nutritionalInfo?: {
-    name: string;
-    calories: number;
-    protein: number;
-    carbohydrates: number;
-    fat: number;
-  } | null;
+  nutritionalInfo?: LogMealOutput | null;
   errors?: {
     foodDescription?: string[];
   } | null;
@@ -120,3 +114,4 @@ export async function addMeal(
         }
     }
 }
+    
