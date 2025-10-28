@@ -12,9 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "../ui/textarea";
 import { useUser } from "@/firebase";
-import { useFormState, useFormStatus } from "react-dom";
+import { useFormStatus } from "react-dom";
 import { addMeal } from "@/app/actions";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useActionState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save } from "lucide-react";
 
@@ -38,7 +38,7 @@ export default function AddMealDialog({ children }: { children: React.ReactNode 
   const { user } = useUser();
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
-  const [state, formAction] = useFormState(addMeal, initialState);
+  const [state, formAction] = useActionState(addMeal, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {

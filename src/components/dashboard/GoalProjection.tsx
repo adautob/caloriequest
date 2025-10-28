@@ -1,5 +1,5 @@
 'use client';
-import { useFormState, useFormStatus } from 'react-dom';
+import { useFormStatus } from 'react-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { getGoalProjection } from '@/app/actions';
 import { Loader2, Wand2 } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useActionState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
 const initialState = {
@@ -28,7 +28,7 @@ function SubmitButton() {
 }
 
 export default function GoalProjection() {
-  const [state, formAction] = useFormState(getGoalProjection, initialState);
+  const [state, formAction] = useActionState(getGoalProjection, initialState);
   const { toast } = useToast();
 
   useEffect(() => {
