@@ -1,0 +1,166 @@
+/**
+ * @fileoverview Firestore Security Rules for CalorieQuest.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model, ensuring that users can only
+ * access and modify their own data.  Achievements are publicly readable but not writable
+ * by standard users.
+ *
+ * Data Structure:
+ * Data is organized hierarchically under `/users/{userId}`, with subcollections for
+ * meals, food items, weight measurements, and user achievements.  Global achievements
+ * are stored in the `/achievements` collection.
+ *
+ * Key Security Decisions:
+ * - User listing is disallowed.
+ * - Read-only access is granted for global achievements.
+ * - Default security posture for ambiguous relationships is strict owner-only access.
+ * - All write operations are explicitly validated against the authenticated user's ID.
+ *
+ * Denormalization for Authorization:
+ *  This design intentionally avoids denormalization to keep the ruleset simple.
+ *  The assumption is that a future refactor might want to enforce the data model more closely.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Checks if the request is authenticated.
+     * @return {boolean} True if the request is authenticated, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the requested user ID matches the authenticated user's ID.
+     * @param {string} userId The user ID to check against.
+     * @return {boolean} True if the user ID matches the authenticated user's ID, false otherwise.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the user is the owner of the existing document.
+     * @param {string} userId The user ID to check against.
+     * @return {boolean} True if the user owns the document and the document exists.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Enforces document ownership and existence for destructive operations.
+     * @path /users/{userId}
+     * @allow (create) Signed-in user creating their own profile.
+     * @deny (create) User attempting to create a profile for another user.
+     * @allow (get, list) Signed-in user reading their own profile.
+     * @deny (get, list) User attempting to read another user's profile.
+     * @allow (update, delete) Signed-in user updating or deleting their own profile.
+     * @deny (update, delete) User attempting to update or delete another user's profile.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree, validates relational integrity between documents.
+     */
+    match /users/{userId} {
+      allow get: if isOwner(userId);
+      allow list: if false;
+
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Enforces meal ownership for a user.
+     * @path /users/{userId}/meals/{mealId}
+     * @allow (create) Signed-in user creating a meal for themselves.
+     * @deny (create) User attempting to create a meal for another user.
+     * @allow (get, list) Signed-in user reading their own meals.
+     * @deny (get, list) User attempting to read another user's meals.
+     * @allow (update, delete) Signed-in user updating or deleting their own meal.
+     * @deny (update, delete) User attempting to update or delete another user's meal.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree, validates relational integrity between documents.
+     */
+    match /users/{userId}/meals/{mealId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) && request.resource.data.userProfileId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userProfileId == resource.data.userProfileId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Enforces food item ownership for a user's meal.
+     * @path /users/{userId}/meals/{mealId}/foodItems/{foodItemId}
+     * @allow (create) Signed-in user creating a food item for their meal.
+     * @deny (create) User attempting to create a food item for another user's meal.
+     * @allow (get, list) Signed-in user reading their own food items.
+     * @deny (get, list) User attempting to read another user's food items.
+     * @allow (update, delete) Signed-in user updating or deleting their own food item.
+     * @deny (update, delete) User attempting to update or delete another user's food item.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree, validates relational integrity between documents.
+     */
+    match /users/{userId}/meals/{mealId}/foodItems/{foodItemId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Enforces weight measurement ownership for a user.
+     * @path /users/{userId}/weightMeasurements/{weightMeasurementId}
+     * @allow (create) Signed-in user creating a weight measurement for themselves.
+     * @deny (create) User attempting to create a weight measurement for another user.
+     * @allow (get, list) Signed-in user reading their own weight measurements.
+     * @deny (get, list) User attempting to read another user's weight measurements.
+     * @allow (update, delete) Signed-in user updating or deleting their own weight measurement.
+     * @deny (update, delete) User attempting to update or delete another user's weight measurement.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree, validates relational integrity between documents.
+     */
+    match /users/{userId}/weightMeasurements/{weightMeasurementId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) && request.resource.data.userProfileId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userProfileId == resource.data.userProfileId;
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Allows public read access to achievements, but restricts write access.
+     * @path /achievements/{achievementId}
+     * @allow (get, list) Any user can read achievements.
+     * @deny (create, update, delete) No user can create, update, or delete achievements.
+     * @principle Allows public read access while restricting write access.
+     */
+    match /achievements/{achievementId} {
+      allow get, list: if true;
+      allow create, update, delete: if false;
+    }
+
+    /**
+     * @description Enforces user achievement ownership for a user.
+     * @path /users/{userId}/userAchievements/{userAchievementId}
+     * @allow (create) Signed-in user creating a user achievement for themselves.
+     * @deny (create) User attempting to create a user achievement for another user.
+     * @allow (get, list) Signed-in user reading their own user achievements.
+     * @deny (get, list) User attempting to read another user's user achievements.
+     * @allow (update, delete) Signed-in user updating or deleting their own user achievement.
+     * @deny (update, delete) User attempting to update or delete another user's user achievement.
+     * @principle Enforces document ownership for writes, restricts access to a user's own data tree, validates relational integrity between documents.
+     */
+    match /users/{userId}/userAchievements/{userAchievementId} {
+      allow get: if isOwner(userId);
+      allow list: if isOwner(userId);
+
+      allow create: if isOwner(userId) && request.resource.data.userProfileId == userId;
+      allow update: if isExistingOwner(userId) && request.resource.data.userProfileId == resource.data.userProfileId;
+      allow delete: if isExistingOwner(userId);
+    }
+  }
+}

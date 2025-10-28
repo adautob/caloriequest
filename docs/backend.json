@@ -1,0 +1,366 @@
+{
+  "entities": {
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserProfile",
+      "type": "object",
+      "description": "Represents a user's profile in the CalorieQuest app.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserProfile entity."
+        },
+        "googleId": {
+          "type": "string",
+          "description": "The user's Google ID (used for authentication)."
+        },
+        "email": {
+          "type": "string",
+          "description": "User's email address.",
+          "format": "email"
+        },
+        "name": {
+          "type": "string",
+          "description": "User's display name."
+        },
+        "weightGoal": {
+          "type": "number",
+          "description": "User's target weight in kilograms."
+        }
+      },
+      "required": [
+        "id",
+        "googleId",
+        "email",
+        "name",
+        "weightGoal"
+      ]
+    },
+    "Meal": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Meal",
+      "type": "object",
+      "description": "Represents a meal logged by the user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Meal entity."
+        },
+        "userProfileId": {
+          "type": "string",
+          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N Meal)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the meal (e.g., 'Breakfast', 'Lunch', 'Dinner')."
+        },
+        "date": {
+          "type": "string",
+          "description": "Date when the meal was consumed (YYYY-MM-DD).",
+          "format": "date-time"
+        },
+        "calories": {
+          "type": "number",
+          "description": "Total calories in the meal."
+        },
+        "protein": {
+          "type": "number",
+          "description": "Total protein in grams in the meal."
+        },
+        "carbohydrates": {
+          "type": "number",
+          "description": "Total carbohydrates in grams in the meal."
+        },
+        "fat": {
+          "type": "number",
+          "description": "Total fat in grams in the meal."
+        }
+      },
+      "required": [
+        "id",
+        "userProfileId",
+        "name",
+        "date",
+        "calories",
+        "protein",
+        "carbohydrates",
+        "fat"
+      ]
+    },
+    "FoodItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FoodItem",
+      "type": "object",
+      "description": "Represents a specific food item within a meal.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the FoodItem entity."
+        },
+        "mealId": {
+          "type": "string",
+          "description": "Reference to Meal. (Relationship: Meal 1:N FoodItem)"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the food item (e.g., 'Apple', 'Chicken Breast')."
+        },
+        "quantity": {
+          "type": "number",
+          "description": "Quantity of the food item consumed."
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of measure for the quantity (e.g., 'grams', 'cups', 'slices')."
+        },
+        "calories": {
+          "type": "number",
+          "description": "Calories provided by the food item."
+        },
+        "protein": {
+          "type": "number",
+          "description": "Protein provided by the food item."
+        },
+        "carbohydrates": {
+          "type": "number",
+          "description": "Carbohydrates provided by the food item."
+        },
+        "fat": {
+          "type": "number",
+          "description": "Fat provided by the food item."
+        }
+      },
+      "required": [
+        "id",
+        "mealId",
+        "name",
+        "quantity",
+        "unit",
+        "calories",
+        "protein",
+        "carbohydrates",
+        "fat"
+      ]
+    },
+    "WeightMeasurement": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "WeightMeasurement",
+      "type": "object",
+      "description": "Represents a user's weight measurement over time.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the WeightMeasurement entity."
+        },
+        "userProfileId": {
+          "type": "string",
+          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N WeightMeasurement)"
+        },
+        "date": {
+          "type": "string",
+          "description": "Date when the weight was measured (YYYY-MM-DD).",
+          "format": "date-time"
+        },
+        "weight": {
+          "type": "number",
+          "description": "User's weight in kilograms."
+        }
+      },
+      "required": [
+        "id",
+        "userProfileId",
+        "date",
+        "weight"
+      ]
+    },
+    "Achievement": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Achievement",
+      "type": "object",
+      "description": "Represents an achievement or badge that a user can earn.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Achievement entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the achievement (e.g., 'First Log', 'Weight Loss Milestone')."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of how to earn the achievement."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "URL of the image representing the achievement.",
+          "format": "uri"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "imageUrl"
+      ]
+    },
+    "UserAchievement": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserAchievement",
+      "type": "object",
+      "description": "Represents the achievements earned by a specific user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserAchievement entity."
+        },
+        "userProfileId": {
+          "type": "string",
+          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N UserAchievement)"
+        },
+        "achievementId": {
+          "type": "string",
+          "description": "Reference to Achievement. (Relationship: Achievement 1:N UserAchievement)"
+        },
+        "dateEarned": {
+          "type": "string",
+          "description": "Date when the achievement was earned.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userProfileId",
+        "achievementId",
+        "dateEarned"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores user profile information.  The 'userId' parameter is the Firebase Auth UID. This path ensures that only the authenticated user can access their profile data.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Auth UID of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/meals/{mealId}",
+        "definition": {
+          "entityName": "Meal",
+          "schema": {
+            "$ref": "#/backend/entities/Meal"
+          },
+          "description": "Stores meal logs for each user. The 'userId' parameter ensures that only the authenticated user can access their meal data. The 'mealId' is a unique ID for each meal.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Auth UID of the user."
+            },
+            {
+              "name": "mealId",
+              "description": "Unique identifier for the meal."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/meals/{mealId}/foodItems/{foodItemId}",
+        "definition": {
+          "entityName": "FoodItem",
+          "schema": {
+            "$ref": "#/backend/entities/FoodItem"
+          },
+          "description": "Stores individual food items within a meal. The 'userId' parameter ensures that only the authenticated user can access their food item data.  'mealId' links to the parent meal.  'foodItemId' is a unique ID for each food item.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Auth UID of the user."
+            },
+            {
+              "name": "mealId",
+              "description": "Unique identifier for the meal."
+            },
+            {
+              "name": "foodItemId",
+              "description": "Unique identifier for the food item."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/weightMeasurements/{weightMeasurementId}",
+        "definition": {
+          "entityName": "WeightMeasurement",
+          "schema": {
+            "$ref": "#/backend/entities/WeightMeasurement"
+          },
+          "description": "Stores weight measurements for each user. The 'userId' parameter ensures that only the authenticated user can access their weight measurement data. 'weightMeasurementId' is a unique ID for each weight measurement.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Auth UID of the user."
+            },
+            {
+              "name": "weightMeasurementId",
+              "description": "Unique identifier for the weight measurement."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/achievements/{achievementId}",
+        "definition": {
+          "entityName": "Achievement",
+          "schema": {
+            "$ref": "#/backend/entities/Achievement"
+          },
+          "description": "Stores global achievement definitions. Accessible to all users for read operations, but write access should be restricted to administrators. Since there are no access control contraints here, no denormalized auth fields are required.",
+          "params": [
+            {
+              "name": "achievementId",
+              "description": "Unique identifier for the achievement."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/userAchievements/{userAchievementId}",
+        "definition": {
+          "entityName": "UserAchievement",
+          "schema": {
+            "$ref": "#/backend/entities/UserAchievement"
+          },
+          "description": "Stores the achievements earned by a specific user.  The 'userId' parameter ensures that only the authenticated user can access their achievement data. 'userAchievementId' is a unique ID for each user achievement.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Auth UID of the user."
+            },
+            {
+              "name": "userAchievementId",
+              "description": "Unique identifier for the user achievement."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to ensure data isolation and ease of security rule implementation, adhering to the principles of Authorization Independence and Structural Segregation. User profiles and associated data (meals, weight measurements, achievements) are stored under the `/users/{userId}` path, providing clear ownership and simplifying access control. Each collection under `/users/{userId}` is dedicated to a specific data type, ensuring a homogeneous security posture.\n\n**Authorization Independence**: Denormalization is not explicitly required in this structure as the data access control is fundamentally path-based.  Access to `/users/{userId}` and its subcollections is restricted to the authenticated user with a matching `userId`. This avoids the need for `get()` calls in security rules, enabling atomic operations.\n\n**QAPs**: The path-based ownership (`/users/{userId}/...`) inherently supports secure `list` operations.  A user can only list data under their own `userId`, preventing unauthorized access to other users' data. The structure is segregated by entity type into homogeneous collections that each have a straightforward security posture, with the security rules not acting as data filters.\n\nThis design allows the application to scale efficiently, enabling secure data access patterns with minimal overhead."
+  }
+}
