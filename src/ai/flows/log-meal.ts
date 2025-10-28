@@ -11,16 +11,16 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
 const LogMealInputSchema = z.object({
-  foodDescription: z.string().describe('A natural language description of a food item and its quantity (e.g., "2 eggs and 1 slice of bacon").'),
+  foodDescription: z.string().describe('A natural language description of a food item and its quantity (e.g., "2 ovos e 1 fatia de bacon").'),
 });
 export type LogMealInput = z.infer<typeof LogMealInputSchema>;
 
 const LogMealOutputSchema = z.object({
-  name: z.string().describe("The name of the food item (e.g., 'Eggs and Bacon')."),
-  calories: z.number().describe('Total calories in the meal.'),
-  protein: z.number().describe('Total protein in grams in the meal.'),
-  carbohydrates: z.number().describe('Total carbohydrates in grams in the meal.'),
-  fat: z.number().describe('Total fat in grams in the meal.'),
+  name: z.string().describe("O nome do item alimentar em português (ex: 'Ovos com Bacon')."),
+  calories: z.number().describe('Total de calorias na refeição.'),
+  protein: z.number().describe('Total de proteína em gramas na refeição.'),
+  carbohydrates: z.number().describe('Total de carboidratos em gramas na refeição.'),
+  fat: z.number().describe('Total de gordura em gramas na refeição.'),
 });
 export type LogMealOutput = z.infer<typeof LogMealOutputSchema>;
 
@@ -32,18 +32,18 @@ const logMealPrompt = ai.definePrompt({
   name: 'logMealPrompt',
   input: { schema: LogMealInputSchema },
   output: { schema: LogMealOutputSchema },
-  prompt: `You are an expert nutritionist. Analyze the following food description and provide the estimated nutritional information.
+  prompt: `Você é um nutricionista especialista. Analise a seguinte descrição de alimento e forneça as informações nutricionais estimadas. O nome da refeição deve estar em português do Brasil.
 
-Food Description: {{{foodDescription}}}
+Descrição do Alimento: {{{foodDescription}}}
 
-Based on this, provide the following information:
-- The name of the meal.
-- The total calories.
-- The total protein in grams.
-- The total carbohydrates in grams.
-- The total fat in grams.
+Com base nisso, forneça as seguintes informações:
+- O nome da refeição em português do Brasil.
+- O total de calorias.
+- O total de proteína em gramas.
+- O total de carboidratos em gramas.
+- O total de gordura em gramas.
 
-Return the data in a structured JSON format.`,
+Retorne os dados em um formato JSON estruturado.`,
 });
 
 const logMealFlow = ai.defineFlow(
