@@ -1,9 +1,9 @@
 'use client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { useEffect, useState, useMemo } from "react";
-import { useUser, useFirestore, useCollection } from "@/firebase";
-import { collection, query, where } from "firebase/firestore";
+import { useEffect, useState } from "react";
+import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query } from "firebase/firestore";
 import type { Meal } from "@/lib/types";
 import { Skeleton } from "../ui/skeleton";
 
@@ -15,20 +15,12 @@ export default function CalorieSummary() {
   const [totalCalories, setTotalCalories] = useState(0);
   const [progress, setProgress] = useState(0);
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const mealsQuery = useMemo(() => {
+  const mealsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
-    const todayStr = new Date().toISOString().split('T')[0];
-    return query(
-        collection(firestore, `users/${user.uid}/meals`)
-        // This query won't work as expected without a composite index or same-property range filter.
-        // For simplicity, we filter on the client. For production, create a 'date' field (YYYY-MM-DD).
-    );
+    return query(collection(firestore, `users/${user.uid}/meals`));
   }, [user, firestore]);
 
-  const { data: meals, isLoading } = useCollection<Meal>(mealsQuery as any);
+  const { data: meals, isLoading } = useCollection<Meal>(mealsQuery);
 
   useEffect(() => {
     if (meals) {

@@ -3,22 +3,21 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { PlusCircle, UtensilsCrossed } from 'lucide-react';
 import AddMealDialog from "./AddMealDialog";
-import { useUser, useCollection, useFirestore } from "@/firebase";
+import { useUser, useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query, orderBy } from "firebase/firestore";
 import type { Meal } from "@/lib/types";
-import { useMemo } from "react";
 import { Skeleton } from "../ui/skeleton";
 
 export default function MealList() {
   const { user } = useUser();
   const firestore = useFirestore();
 
-  const mealsQuery = useMemo(() => {
+  const mealsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return query(collection(firestore, `users/${user.uid}/meals`), orderBy('createdAt', 'desc'));
   }, [user, firestore]);
 
-  const { data: meals, isLoading } = useCollection<Meal>(mealsQuery as any);
+  const { data: meals, isLoading } = useCollection<Meal>(mealsQuery);
 
   return (
     <Card className="shadow-sm hover:shadow-md transition-shadow h-full">
