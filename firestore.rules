@@ -1,131 +1,182 @@
+/**
+ * @fileoverview Firestore Security Rules for CalorieQuest.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model. Each user can only
+ * access their own data, which is nested under their unique user ID.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profile information.
+ * - /users/{userId}/meals/{mealId}: Stores meal logs for each user.
+ * - /users/{userId}/meals/{mealId}/foodItems/{foodItemId}: Stores individual food items within a meal.
+ * - /users/{userId}/weightMeasurements/{weightMeasurementId}: Stores weight measurements for each user.
+ * - /achievements/{achievementId}: Stores global achievement definitions (publicly readable).
+ * - /users/{userId}/userAchievements/{userAchievementId}: Stores the achievements earned by a specific user.
+ *
+ * Key Security Decisions:
+ * - Users can only create, read, update, and delete data under their own user ID.
+ * - Listing of user-specific data (meals, weight measurements, achievements) is allowed only for the owner.
+ * - Global achievements are publicly readable but not writable by regular users.
+ *
+ * Denormalization for Authorization: Not required due to path-based access control.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the request is authenticated.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the authenticated user is the owner of the document, based on the userId.
-     */
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the authenticated user is the owner of the document and it exists.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && exists(resource);
-    }
-
-    /**
-     * @description Rules for user profiles.
+     * @description Controls access to user profile documents.
      * @path /users/{userId}
-     * @allow (create) - User with matching UID can create their profile.
-     * @allow (get) - User with matching UID can get their profile.
-     * @allow (update) - User with matching UID can update their profile.
-     * @allow (delete) - User with matching UID can delete their profile.
-     * @deny (create) - User attempts to create a profile with a mismatched UID.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) User with UID 'user123' can create their profile with id matching their UID.
+     * @allow (get) User with UID 'user123' can read their own profile.
+     * @allow (update) User with UID 'user123' can update their own profile.
+     * @allow (delete) User with UID 'user123' can delete their own profile.
+     * @deny (create) User with UID 'user123' cannot create a profile with mismatched id 'user456'.
+     * @deny (get) User with UID 'user123' cannot read profile 'user456'.
+     * @deny (update) User with UID 'user123' cannot update profile 'user456'.
+     * @deny (delete) User with UID 'user123' cannot delete profile 'user456'.
+     * @principle Enforces document ownership for all operations.
      */
     match /users/{userId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
       allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isExistingOwner(userId);
-      allow delete: if isExistingOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if isOwner(userId) && resource.data.id == userId;
+      allow delete: if isOwner(userId) && resource.data.id == userId;
     }
 
     /**
-     * @description Rules for meals.
+     * @description Controls access to meal documents for a specific user.
      * @path /users/{userId}/meals/{mealId}
-     * @allow (create) - User with matching UID can create a meal.
-     * @allow (get) - User with matching UID can get a meal.
-     * @allow (update) - User with matching UID can update their meal.
-     * @allow (delete) - User with matching UID can delete their meal.
-     * @deny (create) - User attempts to create a meal with a mismatched UID.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) User with UID 'user123' can create a meal under their profile.
+     * @allow (get) User with UID 'user123' can read a meal under their profile.
+     * @allow (list) User with UID 'user123' can list meals under their profile.
+     * @allow (update) User with UID 'user123' can update a meal under their profile.
+     * @allow (delete) User with UID 'user123' can delete a meal under their profile.
+     * @deny (create) User with UID 'user123' cannot create a meal under profile 'user456'.
+     * @deny (get) User with UID 'user123' cannot read a meal under profile 'user456'.
+     * @deny (list) User with UID 'user123' cannot list meals under profile 'user456'.
+     * @deny (update) User with UID 'user123' cannot update a meal under profile 'user456'.
+     * @deny (delete) User with UID 'user123' cannot delete a meal under profile 'user456'.
+     * @principle Restricts access to a user's own meal data.
      */
     match /users/{userId}/meals/{mealId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      function isExistingOwner(userId) {
+          return isOwner(userId) && resource != null;
+      }
       allow get: if isOwner(userId);
-      allow list: if false;
+      allow list: if isOwner(userId);
       allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Rules for food items.
+     * @description Controls access to food item documents within a meal for a specific user.
      * @path /users/{userId}/meals/{mealId}/foodItems/{foodItemId}
-     * @allow (create) - User with matching UID can create a food item.
-     * @allow (get) - User with matching UID can get a food item.
-     * @allow (update) - User with matching UID can update their food item.
-     * @allow (delete) - User with matching UID can delete their food item.
-     * @deny (create) - User attempts to create a food item with a mismatched UID.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) User with UID 'user123' can create a food item within their meal.
+     * @allow (get) User with UID 'user123' can read a food item within their meal.
+     * @allow (list) User with UID 'user123' can list food items within their meal.
+     * @allow (update) User with UID 'user123' can update a food item within their meal.
+     * @allow (delete) User with UID 'user123' can delete a food item within their meal.
+     * @deny (create) User with UID 'user123' cannot create a food item under profile 'user456'.
+     * @deny (get) User with UID 'user123' cannot read a food item under profile 'user456'.
+     * @deny (list) User with UID 'user123' cannot list food items under profile 'user456'.
+     * @deny (update) User with UID 'user123' cannot update a food item under profile 'user456'.
+     * @deny (delete) User with UID 'user123' cannot delete a food item under profile 'user456'.
+     * @principle Restricts access to a user's own food item data.
      */
     match /users/{userId}/meals/{mealId}/foodItems/{foodItemId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      function isExistingOwner(userId) {
+          return isOwner(userId) && resource != null;
+      }
       allow get: if isOwner(userId);
-      allow list: if false;
+      allow list: if isOwner(userId);
       allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Rules for weight measurements.
+     * @description Controls access to weight measurement documents for a specific user.
      * @path /users/{userId}/weightMeasurements/{weightMeasurementId}
-     * @allow (create) - User with matching UID can create a weight measurement.
-     * @allow (get) - User with matching UID can get a weight measurement.
-     * @allow (update) - User with matching UID can update their weight measurement.
-     * @allow (delete) - User with matching UID can delete their weight measurement.
-     * @deny (create) - User attempts to create a weight measurement with a mismatched UID.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) User with UID 'user123' can create a weight measurement under their profile.
+     * @allow (get) User with UID 'user123' can read a weight measurement under their profile.
+     * @allow (list) User with UID 'user123' can list weight measurements under their profile.
+     * @allow (update) User with UID 'user123' can update a weight measurement under their profile.
+     * @allow (delete) User with UID 'user123' can delete a weight measurement under their profile.
+     * @deny (create) User with UID 'user123' cannot create a weight measurement under profile 'user456'.
+     * @deny (get) User with UID 'user123' cannot read a weight measurement under profile 'user456'.
+     * @deny (list) User with UID 'user123' cannot list weight measurements under profile 'user456'.
+     * @deny (update) User with UID 'user123' cannot update a weight measurement under profile 'user456'.
+     * @deny (delete) User with UID 'user123' cannot delete a weight measurement under profile 'user456'.
+     * @principle Restricts access to a user's own weight measurement data.
      */
     match /users/{userId}/weightMeasurements/{weightMeasurementId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      function isExistingOwner(userId) {
+          return isOwner(userId) && resource != null;
+      }
       allow get: if isOwner(userId);
-      allow list: if false;
+      allow list: if isOwner(userId);
       allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
     }
 
     /**
-     * @description Rules for achievements.
+     * @description Controls access to achievement documents (publicly readable, admin-writable).
      * @path /achievements/{achievementId}
-     * @allow (get) - Any user can get an achievement.
-     * @allow (list) - Any user can list achievements.
-     * @deny (create) - No one can create achievements (yet).
-     * @deny (update) - No one can update achievements (yet).
-     * @deny (delete) - No one can delete achievements (yet).
-     * @principle Public read, admin-only write (currently disabled for prototyping).
+     * @allow (get) Any user can read any achievement.
+     * @allow (list) Any user can list achievements.
+     * @deny (create) No regular user can create an achievement. // TODO: Add admin role check if needed.
+     * @deny (update) No regular user can update an achievement. // TODO: Add admin role check if needed.
+     * @deny (delete) No regular user can delete an achievement. // TODO: Add admin role check if needed.
+     * @principle Allows public read access to achievements.
      */
     match /achievements/{achievementId} {
       allow get: if true;
       allow list: if true;
-      allow create: if false; // TODO: Restrict to admins.
-      allow update: if false; // TODO: Restrict to admins.
-      allow delete: if false; // TODO: Restrict to admins.
+      allow create: if false; // TODO: Add admin role check if needed.
+      allow update: if false; // TODO: Add admin role check if needed.
+      allow delete: if false; // TODO: Add admin role check if needed.
     }
 
     /**
-     * @description Rules for user achievements.
+     * @description Controls access to user achievement documents for a specific user.
      * @path /users/{userId}/userAchievements/{userAchievementId}
-     * @allow (create) - User with matching UID can create a user achievement.
-     * @allow (get) - User with matching UID can get a user achievement.
-     * @allow (update) - User with matching UID can update their user achievement.
-     * @allow (delete) - User with matching UID can delete their user achievement.
-     * @deny (create) - User attempts to create a user achievement with a mismatched UID.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) User with UID 'user123' can create a user achievement under their profile.
+     * @allow (get) User with UID 'user123' can read a user achievement under their profile.
+     * @allow (list) User with UID 'user123' can list user achievements under their profile.
+     * @allow (update) User with UID 'user123' can update a user achievement under their profile.
+     * @allow (delete) User with UID 'user123' can delete a user achievement under their profile.
+     * @deny (create) User with UID 'user123' cannot create a user achievement under profile 'user456'.
+     * @deny (get) User with UID 'user123' cannot read a user achievement under profile 'user456'.
+     * @deny (list) User with UID 'user123' cannot list user achievements under profile 'user456'.
+     * @deny (update) User with UID 'user123' cannot update a user achievement under profile 'user456'.
+     * @deny (delete) User with UID 'user123' cannot delete a user achievement under profile 'user456'.
+     * @principle Restricts access to a user's own user achievement data.
      */
     match /users/{userId}/userAchievements/{userAchievementId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+      function isExistingOwner(userId) {
+          return isOwner(userId) && resource != null;
+      }
       allow get: if isOwner(userId);
-      allow list: if false;
+      allow list: if isOwner(userId);
       allow create: if isOwner(userId);
       allow update: if isExistingOwner(userId);
       allow delete: if isExistingOwner(userId);
