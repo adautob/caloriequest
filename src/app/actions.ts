@@ -100,7 +100,7 @@ export async function addMeal(
           throw new Error("A IA não retornou informações nutricionais.");
         }
         return {
-            message: `"${nutritionalInfo.name}" analisado com sucesso! Salvando...`,
+            message: `"${nutritionalInfo.name}" analisado com sucesso!`,
             nutritionalInfo,
             errors: null,
             success: true,
@@ -112,6 +112,55 @@ export async function addMeal(
             errors: null,
             success: false,
         }
+    }
+}
+
+// --- Update Profile Action ---
+
+const profileFormSchema = z.object({
+  name: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
+  currentWeight: z.coerce.number().optional(),
+  height: z.coerce.number().optional(),
+  weightGoal: z.coerce.number().optional(),
+  age: z.coerce.number().optional(),
+  gender: z.string().optional(),
+  activityLevel: z.string().optional(),
+  dietaryPreferences: z.string().optional(),
+});
+
+
+type UpdateProfileState = {
+    message: string;
+    errors?: {
+        [key: string]: string[] | undefined;
+    } | null;
+    success: boolean;
+}
+
+export async function updateProfile(
+    prevState: UpdateProfileState,
+    formData: FormData,
+): Promise<UpdateProfileState> {
+    const validatedFields = profileFormSchema.safeParse(Object.fromEntries(formData.entries()));
+
+    if (!validatedFields.success) {
+        return {
+            message: "Por favor, corrija os erros no formulário.",
+            errors: validatedFields.error.flatten().fieldErrors,
+            success: false,
+        };
+    }
+    
+    // This is a server action, but we can't interact with Firebase from here
+    // directly due to client/server constraints in this setup.
+    // The actual Firebase update will be triggered from the client component
+    // after this action successfully returns the validated data.
+    // This action's primary role is validation.
+
+    return {
+        message: "Dados validados com sucesso! O perfil será atualizado.",
+        errors: null,
+        success: true,
     }
 }
     

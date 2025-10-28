@@ -1,5 +1,5 @@
 'use client';
-import { Dumbbell, LogOut } from 'lucide-react';
+import { Dumbbell, LogOut, User as UserIcon } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -9,7 +9,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import placeholderImages from '@/lib/placeholder-images.json'
 import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { Button } from './ui/button';
@@ -25,10 +24,10 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background/80 px-4 backdrop-blur-sm md:px-6 z-50">
-      <div className="flex items-center gap-2 text-lg font-semibold">
+      <Link href="/" className="flex items-center gap-2 text-lg font-semibold">
         <Dumbbell className="h-6 w-6 text-primary" />
         <span className="font-headline">CalorieQuest</span>
-      </div>
+      </Link>
       <div className="ml-auto flex items-center gap-4">
         {isUserLoading ? (
           <div className="h-9 w-9 rounded-full bg-muted animate-pulse" />
@@ -43,7 +42,12 @@ export default function Header() {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>{user.displayName || 'Minha Conta'}</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem disabled>Perfil</DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/profile">
+                  <UserIcon className="mr-2 h-4 w-4" />
+                  <span>Perfil</span>
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem disabled>Configurações</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>

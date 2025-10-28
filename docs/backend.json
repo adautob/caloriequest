@@ -10,10 +10,6 @@
           "type": "string",
           "description": "Unique identifier for the UserProfile entity."
         },
-        "googleId": {
-          "type": "string",
-          "description": "The user's Google ID (used for authentication)."
-        },
         "email": {
           "type": "string",
           "description": "User's email address.",
@@ -23,17 +19,39 @@
           "type": "string",
           "description": "User's display name."
         },
+        "currentWeight": {
+            "type": "number",
+            "description": "User's current weight in kilograms."
+        },
+        "height": {
+            "type": "number",
+            "description": "User's height in centimeters."
+        },
         "weightGoal": {
           "type": "number",
           "description": "User's target weight in kilograms."
+        },
+        "age": {
+            "type": "number",
+            "description": "User's age in years."
+        },
+        "gender": {
+            "type": "string",
+            "description": "User's gender."
+        },
+        "activityLevel": {
+            "type": "string",
+            "description": "User's activity level."
+        },
+        "dietaryPreferences": {
+            "type": "string",
+            "description": "User's dietary preferences."
         }
       },
       "required": [
         "id",
-        "googleId",
         "email",
-        "name",
-        "weightGoal"
+        "name"
       ]
     },
     "Meal": {

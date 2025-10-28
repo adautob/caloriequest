@@ -26,4 +26,16 @@ export type Achievement = {
   unlocked: boolean;
 };
 
+export type UserProfile = {
+    id: string;
+    email: string;
+    name: string;
+    currentWeight?: number;
+    height?: number;
+    weightGoal?: number;
+    age?: number;
+    gender?: string;
+    activityLevel?: string;
+    dietaryPreferences?: string;
+}
     
