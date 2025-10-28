@@ -8,7 +8,7 @@ export type Meal = {
   protein: number;
   carbohydrates: number;
   fat: number;
-  time: string;
+  date: string; // Changed from time to a full ISO date string
   createdAt: Timestamp;
 };
 

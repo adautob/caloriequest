@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress";
 import { useEffect, useState } from "react";
 import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query } from "firebase/firestore";
+import { collection, query, where, Timestamp } from "firebase/firestore";
 import type { Meal } from "@/lib/types";
 import { Skeleton } from "../ui/skeleton";
 
@@ -17,19 +17,21 @@ export default function CalorieSummary() {
 
   const mealsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
-    return query(collection(firestore, `users/${user.uid}/meals`));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayTimestamp = Timestamp.fromDate(today);
+
+    return query(
+      collection(firestore, `users/${user.uid}/meals`),
+      where('createdAt', '>=', todayTimestamp)
+    );
   }, [user, firestore]);
 
   const { data: meals, isLoading } = useCollection<Meal>(mealsQuery);
 
   useEffect(() => {
     if (meals) {
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-
-      const calories = meals
-        .filter(meal => meal.createdAt?.toDate() > todayStart)
-        .reduce((sum, meal) => sum + meal.calories, 0);
+      const calories = meals.reduce((sum, meal) => sum + meal.calories, 0);
       setTotalCalories(calories);
       setProgress((calories / CALORIE_GOAL) * 100);
     }

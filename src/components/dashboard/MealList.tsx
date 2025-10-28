@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { PlusCircle, UtensilsCrossed } from 'lucide-react';
 import AddMealDialog from "./AddMealDialog";
 import { useUser, useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy } from "firebase/firestore";
+import { collection, query, orderBy, where, Timestamp } from "firebase/firestore";
 import type { Meal } from "@/lib/types";
 import { Skeleton } from "../ui/skeleton";
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export default function MealList() {
   const { user } = useUser();
@@ -14,10 +16,27 @@ export default function MealList() {
 
   const mealsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
-    return query(collection(firestore, `users/${user.uid}/meals`), orderBy('createdAt', 'desc'));
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayTimestamp = Timestamp.fromDate(today);
+
+    return query(
+        collection(firestore, `users/${user.uid}/meals`), 
+        where('createdAt', '>=', todayTimestamp),
+        orderBy('createdAt', 'desc')
+    );
   }, [user, firestore]);
 
   const { data: meals, isLoading } = useCollection<Meal>(mealsQuery);
+  
+  const getMealTime = (date: string) => {
+    try {
+        return format(new Date(date), "HH:mm");
+    } catch(e) {
+        // Fallback for old time format
+        return date;
+    }
+  }
 
   return (
     <Card className="shadow-sm hover:shadow-md transition-shadow h-full">
@@ -49,7 +68,7 @@ export default function MealList() {
               <div key={meal.id} className="flex items-start justify-between gap-4 p-3 rounded-lg bg-background hover:bg-muted/80 transition-colors">
                 <div>
                   <p className="font-semibold">{meal.name}</p>
-                  <p className="text-sm text-muted-foreground">{meal.time}</p>
+                  <p className="text-sm text-muted-foreground">{getMealTime(meal.date)}</p>
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="font-semibold">{meal.calories} kcal</p>

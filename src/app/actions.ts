@@ -118,29 +118,20 @@ export async function addMeal(
         }
     }
     
-    try {
-      // 2. Save to Firestore
-      const { firestore } = getSdks(initializeFirebase().firebaseApp);
-      const mealsCollection = collection(firestore, `users/${userId}/meals`);
-      
-      // Use non-blocking update
-      addDocumentNonBlocking(mealsCollection, {
-          ...nutritionalInfo,
-          time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-          createdAt: serverTimestamp(),
-      });
+    // 2. Save to Firestore
+    const { firestore } = getSdks(initializeFirebase().firebaseApp);
+    const mealsCollection = collection(firestore, `users/${userId}/meals`);
+    
+    // Use non-blocking update. Errors are handled by the global error listener.
+    addDocumentNonBlocking(mealsCollection, {
+        ...nutritionalInfo,
+        date: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+    });
 
-      return {
-          message: `"${nutritionalInfo.name}" adicionado com sucesso!`,
-          errors: null,
-          success: true,
-      }
-    } catch(error) {
-        console.error("Error saving meal to Firestore:", error);
-        return {
-            message: "Ocorreu um erro ao salvar a refeição no banco de dados. Verifique sua conexão e tente novamente.",
-            errors: null,
-            success: false,
-        }
+    return {
+        message: `"${nutritionalInfo.name}" adicionado com sucesso!`,
+        errors: null,
+        success: true,
     }
 }
