@@ -11,15 +11,17 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "../ui/textarea";
-import { useUser } from "@/firebase";
+import { useUser, useFirestore, addDocumentNonBlocking } from "@/firebase";
 import { useFormStatus } from "react-dom";
 import { addMeal } from "@/app/actions";
 import { useEffect, useState, useRef, useActionState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save } from "lucide-react";
+import { collection, serverTimestamp } from "firebase/firestore";
 
 const initialState = {
   message: null,
+  nutritionalInfo: null,
   errors: null,
   success: false,
 };
@@ -29,36 +31,48 @@ function SubmitButton() {
   return (
     <Button type="submit" disabled={pending} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
       {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-      Salvar Refeição
+      Analisar e Salvar Refeição
     </Button>
   );
 }
 
 export default function AddMealDialog({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
+  const firestore = useFirestore();
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [state, formAction] = useActionState(addMeal, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
-    if (!state) return;
+    if (!state || !user || !firestore) return;
 
-    if (state.success) {
+    if (state.success && state.nutritionalInfo) {
+      // AI part was successful, now save to Firestore
+      const mealsCollection = collection(firestore, `users/${user.uid}/meals`);
+      
+      addDocumentNonBlocking(mealsCollection, {
+        ...state.nutritionalInfo,
+        date: new Date().toISOString(),
+        createdAt: serverTimestamp(),
+      });
+      
       toast({
         title: "Sucesso!",
-        description: state.message,
+        description: `"${state.nutritionalInfo.name}" adicionado com sucesso!`,
       });
+
       setIsOpen(false);
       formRef.current?.reset();
-    } else if (state.message) {
+
+    } else if (state.message && !state.success) {
        toast({
         title: "Erro ao adicionar refeição",
         description: state.message,
         variant: "destructive",
       });
     }
-  }, [state, toast]);
+  }, [state, user, firestore, toast]);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -73,7 +87,6 @@ export default function AddMealDialog({ children }: { children: React.ReactNode 
           </DialogDescription>
         </DialogHeader>
         <form action={formAction} ref={formRef} className="grid gap-4 py-4">
-           <input type="hidden" name="userId" value={user?.uid} />
            <div className="grid w-full items-center gap-1.5">
             <Label htmlFor="foodDescription">O que você comeu?</Label>
             <Textarea 
