@@ -7,63 +7,87 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
-  DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "../ui/textarea";
+import { useUser } from "@/firebase";
+import { useFormState, useFormStatus } from "react-dom";
+import { addMeal } from "@/app/actions";
+import { useEffect, useState, useRef } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, Save } from "lucide-react";
+
+const initialState = {
+  message: null,
+  errors: null,
+  success: false,
+};
+
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <Button type="submit" disabled={pending} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
+      {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+      Salvar Refeição
+    </Button>
+  );
+}
 
 export default function AddMealDialog({ children }: { children: React.ReactNode }) {
-  // In a real app, this would use a form library and a server action to persist data.
+  const { user } = useUser();
+  const { toast } = useToast();
+  const [isOpen, setIsOpen] = useState(false);
+  const [state, formAction] = useFormState(addMeal, initialState);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (!state) return;
+
+    if (state.success) {
+      toast({
+        title: "Sucesso!",
+        description: state.message,
+      });
+      setIsOpen(false);
+      formRef.current?.reset();
+    } else if (state.message) {
+       toast({
+        title: "Erro ao adicionar refeição",
+        description: state.message,
+        variant: "destructive",
+      });
+    }
+  }, [state, toast]);
+
   return (
-    <Dialog>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         {children}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="font-headline">Adicionar Refeição</DialogTitle>
+          <DialogTitle className="font-headline">Adicionar Refeição com IA</DialogTitle>
           <DialogDescription>
-            Preencha os detalhes da sua refeição. Clique em Salvar quando terminar.
+            Descreva o que você comeu (ex: 2 ovos fritos e 1 fatia de pão integral). A IA fará o resto.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">
-              Nome
-            </Label>
-            <Input id="name" placeholder="Frango Grelhado" className="col-span-3" />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="calories" className="text-right">
-              Calorias
-            </Label>
-            <Input id="calories" type="number" placeholder="450" className="col-span-3" />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="protein" className="text-right">
-              Proteína (g)
-            </Label>
-            <Input id="protein" type="number" placeholder="40" className="col-span-3" />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="carbs" className="text-right">
-              Carbos (g)
-            </Label>
-            <Input id="carbs" type="number" placeholder="10" className="col-span-3" />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="fat" className="text-right">
-              Gordura (g)
-            </Label>
-            <Input id="fat" type="number" placeholder="27" className="col-span-3" />
-          </div>
-        </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button type="submit" className="bg-primary hover:bg-primary/90 text-primary-foreground">Salvar Refeição</Button>
-          </DialogClose>
-        </DialogFooter>
+        <form action={formAction} ref={formRef} className="grid gap-4 py-4">
+           <input type="hidden" name="userId" value={user?.uid} />
+           <div className="grid w-full items-center gap-1.5">
+            <Label htmlFor="foodDescription">O que você comeu?</Label>
+            <Textarea 
+              id="foodDescription" 
+              name="foodDescription" 
+              placeholder="Ex: 1 xícara de café com leite e 2 pães na chapa" 
+              required 
+            />
+            {state?.errors?.foodDescription && <p className="text-destructive text-sm mt-1">{state.errors.foodDescription[0]}</p>}
+           </div>
+          <DialogFooter>
+            <SubmitButton />
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   );

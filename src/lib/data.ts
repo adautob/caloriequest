@@ -1,11 +1,7 @@
 import { Medal, Flame, Star, Zap, Trophy, BrainCircuit } from 'lucide-react';
-import type { Meal, WeightEntry, Achievement } from './types';
+import type { WeightEntry, Achievement } from './types';
 
-export const dailyMeals: Meal[] = [
-  { id: '1', name: 'Ovos com Abacate', calories: 350, protein: 20, carbs: 5, fat: 28, time: '08:00' },
-  { id: '2', name: 'Frango Grelhado e Salada', calories: 450, protein: 40, carbs: 10, fat: 27, time: '13:00' },
-  { id: '3', name: 'Iogurte Grego com Frutas', calories: 200, protein: 15, carbs: 25, fat: 4, time: '16:30' },
-];
+// This file is now deprecated for meals, but we keep it for achievements and weight history for now.
 
 export const weightHistory: WeightEntry[] = [
   { date: '2024-07-01', weight: 85 },

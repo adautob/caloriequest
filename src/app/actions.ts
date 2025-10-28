@@ -1,9 +1,15 @@
 'use server';
 
 import { projectWeightLossTimeline, ProjectWeightLossTimelineInput } from "@/ai/flows/project-weight-loss-timeline";
+import { logMeal } from '@/ai/flows/log-meal';
 import { z } from "zod";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { getSdks } from "@/firebase/index";
+import { initializeFirebase } from "@/firebase";
 
-const formSchema = z.object({
+// --- Goal Projection Action ---
+
+const goalProjectionFormSchema = z.object({
   currentWeight: z.coerce.number().min(30, "Peso deve ser no mínimo 30kg."),
   goalWeight: z.coerce.number().min(30, "Meta de peso deve ser no mínimo 30kg."),
   height: z.coerce.number().min(100, "Altura deve ser no mínimo 100cm."),
@@ -17,7 +23,7 @@ const formSchema = z.object({
   path: ["goalWeight"],
 });
 
-type State = {
+type GoalProjectionState = {
   message?: string | null;
   data?: {
     projectedTimelineWeeks: number;
@@ -29,10 +35,10 @@ type State = {
 }
 
 export async function getGoalProjection(
-  prevState: State,
+  prevState: GoalProjectionState,
   formData: FormData,
-): Promise<State> {
-  const validatedFields = formSchema.safeParse(Object.fromEntries(formData.entries()));
+): Promise<GoalProjectionState> {
+  const validatedFields = goalProjectionFormSchema.safeParse(Object.fromEntries(formData.entries()));
 
   if (!validatedFields.success) {
     return {
@@ -57,4 +63,65 @@ export async function getGoalProjection(
       errors: null,
     };
   }
+}
+
+
+// --- Add Meal Action ---
+
+const addMealFormSchema = z.object({
+  userId: z.string(),
+  foodDescription: z.string().min(3, "A descrição da refeição deve ter pelo menos 3 caracteres."),
+});
+
+type AddMealState = {
+  message?: string | null;
+  errors?: {
+    foodDescription?: string[];
+  } | null;
+  success?: boolean;
+}
+
+export async function addMeal(
+  prevState: AddMealState,
+  formData: FormData
+): Promise<AddMealState> {
+    const validatedFields = addMealFormSchema.safeParse(Object.fromEntries(formData.entries()));
+
+    if (!validatedFields.success) {
+        return {
+            message: "Por favor, corrija os erros no formulário.",
+            errors: validatedFields.error.flatten().fieldErrors,
+            success: false,
+        };
+    }
+
+    const { foodDescription, userId } = validatedFields.data;
+
+    try {
+        // 1. Get nutritional info from AI
+        const nutritionalInfo = await logMeal({ foodDescription });
+
+        // 2. Save to Firestore
+        const { firestore } = getSdks(initializeFirebase().firebaseApp);
+        const mealsCollection = collection(firestore, `users/${userId}/meals`);
+        
+        await addDoc(mealsCollection, {
+            ...nutritionalInfo,
+            time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+            createdAt: serverTimestamp(),
+        });
+
+        return {
+            message: `"${nutritionalInfo.name}" adicionado com sucesso!`,
+            errors: null,
+            success: true,
+        }
+    } catch(error) {
+        console.error("Error adding meal:", error);
+        return {
+            message: "Ocorreu um erro ao adicionar a refeição. A IA pode não ter conseguido analisar o item. Tente novamente com uma descrição diferente.",
+            errors: null,
+            success: false,
+        }
+    }
 }
