@@ -3,8 +3,8 @@
 import { projectWeightLossTimeline, ProjectWeightLossTimelineInput } from "@/ai/flows/project-weight-loss-timeline";
 import { logMeal } from '@/ai/flows/log-meal';
 import { z } from "zod";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { getSdks } from "@/firebase/index";
+import { collection, serverTimestamp } from "firebase/firestore";
+import { getSdks, addDocumentNonBlocking } from "@/firebase/index";
 import { initializeFirebase } from "@/firebase";
 
 // --- Goal Projection Action ---
@@ -96,30 +96,49 @@ export async function addMeal(
     }
 
     const { foodDescription, userId } = validatedFields.data;
+    let nutritionalInfo;
 
     try {
         // 1. Get nutritional info from AI
-        const nutritionalInfo = await logMeal({ foodDescription });
-
-        // 2. Save to Firestore
-        const { firestore } = getSdks(initializeFirebase().firebaseApp);
-        const mealsCollection = collection(firestore, `users/${userId}/meals`);
-        
-        await addDoc(mealsCollection, {
-            ...nutritionalInfo,
-            time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-            createdAt: serverTimestamp(),
-        });
-
-        return {
-            message: `"${nutritionalInfo.name}" adicionado com sucesso!`,
-            errors: null,
-            success: true,
-        }
+        nutritionalInfo = await logMeal({ foodDescription });
     } catch(error) {
-        console.error("Error adding meal:", error);
+        console.error("Error getting nutritional info from AI:", error);
         return {
-            message: "Ocorreu um erro ao adicionar a refeição. A IA pode não ter conseguido analisar o item. Tente novamente com uma descrição diferente.",
+            message: "Ocorreu um erro ao analisar sua refeição. A IA pode não ter conseguido processar a descrição. Tente novamente com mais detalhes.",
+            errors: null,
+            success: false,
+        }
+    }
+
+    if (!nutritionalInfo) {
+        return {
+            message: "A IA não retornou informações nutricionais. Tente descrever sua refeição de outra forma.",
+            errors: null,
+            success: false,
+        }
+    }
+    
+    try {
+      // 2. Save to Firestore
+      const { firestore } = getSdks(initializeFirebase().firebaseApp);
+      const mealsCollection = collection(firestore, `users/${userId}/meals`);
+      
+      // Use non-blocking update
+      addDocumentNonBlocking(mealsCollection, {
+          ...nutritionalInfo,
+          time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          createdAt: serverTimestamp(),
+      });
+
+      return {
+          message: `"${nutritionalInfo.name}" adicionado com sucesso!`,
+          errors: null,
+          success: true,
+      }
+    } catch(error) {
+        console.error("Error saving meal to Firestore:", error);
+        return {
+            message: "Ocorreu um erro ao salvar a refeição no banco de dados. Verifique sua conexão e tente novamente.",
             errors: null,
             success: false,
         }
