@@ -5,14 +5,14 @@ import { cn } from "@/lib/utils";
 
 export default function AchievementList() {
   return (
-    <Card className="lg:col-span-2 shadow-sm hover:shadow-md transition-shadow">
+    <Card className="shadow-sm hover:shadow-md transition-shadow">
       <CardHeader>
         <CardTitle className="font-headline">Conquistas</CardTitle>
         <CardDescription>Suas medalhas e marcos.</CardDescription>
       </CardHeader>
       <CardContent>
         <TooltipProvider>
-          <div className="grid grid-cols-4 sm:grid-cols-6 gap-4">
+          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {achievements.map((achievement) => (
               <Tooltip key={achievement.id}>
                 <TooltipTrigger asChild>
