@@ -188,8 +188,7 @@
           "description": "Name of the achievement (e.g., 'First Log', 'Weight Loss Milestone')."
         },
         "description": {
-          "type": "string",
-          "description": "Description of how to earn the achievement."
+          "type": "string", "description": "Description of how to earn the achievement."
         },
         "imageUrl": {
           "type": "string",
@@ -238,8 +237,7 @@
   },
   "auth": {
     "providers": [
-      "password",
-      "anonymous"
+      "google.com"
     ]
   },
   "firestore": {
