@@ -70,8 +70,7 @@ export default function ProfileForm() {
     const { user } = useUser();
     const firestore = useFirestore();
     const weightFormRef = useRef<HTMLFormElement>(null);
-    const projectionFormRef = useRef<HTMLFormElement>(null);
-
+    
     const [profileState, profileAction] = useActionState(updateProfile, initialProfileState);
     const [projectionState, projectionAction] = useActionState(getGoalProjection, initialProjectionState);
 
@@ -97,7 +96,7 @@ export default function ProfileForm() {
       dailyCalorieGoal: '',
       age: '',
       gender: '',
-      activityLevel: 'lightly active',
+      activityLevel: '',
       dietaryPreferences: '',
     });
     
@@ -117,7 +116,7 @@ export default function ProfileForm() {
                 dailyCalorieGoal: userProfile.dailyCalorieGoal?.toString() || '',
                 age: userProfile.age?.toString() || '',
                 gender: userProfile.gender || '',
-                activityLevel: userProfile.activityLevel || 'lightly active',
+                activityLevel: userProfile.activityLevel || '',
                 dietaryPreferences: userProfile.dietaryPreferences || '',
             });
         }
@@ -131,7 +130,11 @@ export default function ProfileForm() {
             });
 
             const profileUpdate = profileState.data;
-            setDocumentNonBlocking(userProfileRef, profileUpdate, { merge: true });
+            // Only save non-empty data
+            if (Object.keys(profileUpdate).length > 0) {
+              setDocumentNonBlocking(userProfileRef, profileUpdate, { merge: true });
+            }
+
 
             if(userAchievementsRef) {
                 const hasFirstLogAchievement = userAchievements?.some(ach => ach.achievementId === 'first-log');
@@ -386,85 +389,81 @@ export default function ProfileForm() {
                         <SubmitButton />
                     </CardFooter>
                 </form>
-                </Card>
+            </Card>
 
-                <Card>
-                    <form action={projectionAction} ref={projectionFormRef}>
-                        <input type="hidden" name="currentWeight" value={formData.currentWeight || ''} />
-                        <input type="hidden" name="height" value={formData.height || ''} />
-                        <input type="hidden" name="weightGoal" value={formData.weightGoal || ''} />
-                        <input type="hidden" name="age" value={formData.age || ''} />
-                        <input type="hidden" name="gender" value={formData.gender || ''} />
-                        <input type="hidden" name="activityLevel" value={formData.activityLevel || ''} />
-                        <input type="hidden" name="dietaryPreferences" value={formData.dietaryPreferences || ''} />
-                        
-                        <CardHeader>
-                            <CardTitle className="font-headline">Projeção de Meta com IA</CardTitle>
-                            <CardDescription>Use a inteligência artificial para criar um plano de calorias e obter dicas para alcançar seu objetivo.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="space-y-2">
-                                <Label htmlFor="goalTimelineWeeks">Em quanto tempo (semanas) quer atingir a meta?</Label>
-                                <Input id="goalTimelineWeeks" name="goalTimelineWeeks" type="number" defaultValue="12" required />
-                                {projectionState.errors?.goalTimelineWeeks && <p className="text-destructive text-sm mt-1">{projectionState.errors.goalTimelineWeeks[0]}</p>}
-                                {projectionState.errors?.goalWeight && <p className="text-destructive text-sm mt-1">{projectionState.errors.goalWeight[0]}</p>}
-                                {projectionState.errors?.currentWeight && <p className="text-destructive text-sm mt-1">{projectionState.errors.currentWeight[0]}</p>}
-                                {projectionState.errors?.height && <p className="text-destructive text-sm mt-1">{projectionState.errors.height[0]}</p>}
-                                {projectionState.errors?.age && <p className="text-destructive text-sm mt-1">{projectionState.errors.age[0]}</p>}
-                            </div>
-                        </CardContent>
-                        <CardFooter className="flex-col items-stretch gap-4">
-                            <div className="flex justify-end">
-                                <ProjectionSubmitButton />
-                            </div>
-                            {projectionState.data && (
-                                <div className="mt-4 p-4 bg-primary/10 rounded-lg border border-primary/20 w-full space-y-4 animate-in fade-in-50 duration-500">
-                                <h3 className="font-headline text-lg font-semibold text-primary-foreground/90">Plano Sugerido pela IA ✨</h3>
-                                
-                                <div className="bg-background/50 rounded-md p-3">
-                                    <Label>Meta de Calorias Diária</Label>
-                                    {isEditingGoal ? (
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <Input 
-                                                type="number" 
-                                                value={formData.dailyCalorieGoal}
-                                                onChange={(e) => handleInputChange(e)}
-                                                name="dailyCalorieGoal"
-                                                className="max-w-[120px]"
-                                            />
-                                            <Button size="icon" className="h-8 w-8" onClick={handleSaveCustomGoal}><Check className="h-4 w-4"/></Button>
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center gap-2 mt-1">
-                                        <p className="text-2xl font-bold text-accent">{Math.round(projectionState.data.recommendedDailyCalories)} <span className="text-sm font-normal text-muted-foreground">kcal</span></p>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsEditingGoal(true)}>
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                        </div>
-                                    )}
-                                    <div className="flex gap-2 mt-3">
-                                        <Button 
-                                            size="sm" 
-                                            onClick={() => handleAcceptGoal(Math.round(projectionState.data!.recommendedDailyCalories))}
-                                            disabled={isEditingGoal}
-                                            type="button"
-                                            >
-                                            <Check className="mr-2 h-4 w-4"/> Aceitar Meta
-                                        </Button>
+            <Card>
+                <form action={projectionAction}>
+                    <input type="hidden" name="currentWeight" value={formData.currentWeight} />
+                    <input type="hidden" name="goalWeight" value={formData.goalWeight} />
+                    <input type="hidden" name="height" value={formData.height} />
+                    <input type="hidden" name="age" value={formData.age} />
+                    <input type="hidden" name="gender" value={formData.gender} />
+                    <input type="hidden" name="activityLevel" value={formData.activityLevel} />
+                    <input type="hidden" name="dietaryPreferences" value={formData.dietaryPreferences} />
+                    
+                    <CardHeader>
+                        <CardTitle className="font-headline">Projeção de Meta com IA</CardTitle>
+                        <CardDescription>Use a inteligência artificial para criar um plano de calorias e obter dicas para alcançar seu objetivo.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="space-y-2">
+                            <Label htmlFor="goalTimelineWeeks">Em quanto tempo (semanas) quer atingir a meta?</Label>
+                            <Input id="goalTimelineWeeks" name="goalTimelineWeeks" type="number" defaultValue="12" required />
+                            {projectionState.errors?.goalTimelineWeeks && <p className="text-destructive text-sm mt-1">{projectionState.errors.goalTimelineWeeks[0]}</p>}
+                        </div>
+                    </CardContent>
+                    <CardFooter className="flex-col items-stretch gap-4">
+                        <div className="flex justify-end">
+                            <ProjectionSubmitButton />
+                        </div>
+                        {projectionState.data && (
+                            <div className="mt-4 p-4 bg-primary/10 rounded-lg border border-primary/20 w-full space-y-4 animate-in fade-in-50 duration-500">
+                            <h3 className="font-headline text-lg font-semibold text-primary-foreground/90">Plano Sugerido pela IA ✨</h3>
+                            
+                            <div className="bg-background/50 rounded-md p-3">
+                                <Label>Meta de Calorias Diária</Label>
+                                {isEditingGoal ? (
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <Input 
+                                            type="number" 
+                                            value={formData.dailyCalorieGoal}
+                                            onChange={(e) => handleInputChange(e)}
+                                            name="dailyCalorieGoal"
+                                            className="max-w-[120px]"
+                                        />
+                                        <Button size="icon" className="h-8 w-8" onClick={handleSaveCustomGoal}><Check className="h-4 w-4"/></Button>
                                     </div>
+                                ) : (
+                                    <div className="flex items-center gap-2 mt-1">
+                                    <p className="text-2xl font-bold text-accent">{Math.round(projectionState.data.recommendedDailyCalories)} <span className="text-sm font-normal text-muted-foreground">kcal</span></p>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsEditingGoal(true)}>
+                                        <Edit className="h-4 w-4" />
+                                    </Button>
+                                    </div>
+                                )}
+                                <div className="flex gap-2 mt-3">
+                                    <Button 
+                                        size="sm" 
+                                        onClick={() => handleAcceptGoal(Math.round(projectionState.data!.recommendedDailyCalories))}
+                                        disabled={isEditingGoal}
+                                        type="button"
+                                        >
+                                        <Check className="mr-2 h-4 w-4"/> Aceitar Meta
+                                    </Button>
                                 </div>
+                            </div>
 
-                                <div className="pt-2">
-                                    <h4 className="font-semibold pt-2">Dicas Personalizadas:</h4>
-                                    <p className="text-sm whitespace-pre-wrap">{projectionState.data.personalizedTips}</p>
-                                </div>
-                                <p className="text-xs text-muted-foreground pt-2">
-                                    Isso se baseia em um déficit diário de <span className="font-semibold">{Math.round(projectionState.data.requiredWeeklyDeficit / 7)} calorias</span>.
-                                </p>
-                                </div>
-                            )}
-                        </CardFooter>
-                    </form>
+                            <div className="pt-2">
+                                <h4 className="font-semibold pt-2">Dicas Personalizadas:</h4>
+                                <p className="text-sm whitespace-pre-wrap">{projectionState.data.personalizedTips}</p>
+                            </div>
+                            <p className="text-xs text-muted-foreground pt-2">
+                                Isso se baseia em um déficit diário de <span className="font-semibold">{Math.round(projectionState.data.requiredWeeklyDeficit / 7)} calorias</span>.
+                            </p>
+                            </div>
+                        )}
+                    </CardFooter>
+                </form>
             </Card>
 
             <Card>
