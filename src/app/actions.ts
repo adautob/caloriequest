@@ -14,7 +14,7 @@ const goalProjectionFormSchema = z.object({
   age: z.coerce.number().min(13, "Você deve ter pelo menos 13 anos."),
   gender: z.string(),
   activityLevel: z.string(),
-  dietaryPreferences: z.string().min(3, "Preferências muito curtas."),
+  dietaryPreferences: z.string().optional(),
   goalTimelineWeeks: z.coerce.number().min(1, "O tempo para atingir a meta deve ser de pelo menos 1 semana."),
 }).refine(data => data.currentWeight > data.goalWeight, {
   message: "O peso atual deve ser maior que a meta de peso.",
@@ -47,7 +47,10 @@ export async function getGoalProjection(
   }
 
   try {
-    const input: ProjectWeightLossTimelineInput = validatedFields.data;
+    const input: ProjectWeightLossTimelineInput = {
+      ...validatedFields.data,
+      dietaryPreferences: validatedFields.data.dietaryPreferences || 'Nenhuma'
+    };
     const result = await projectWeightLossTimeline(input);
     return {
       message: "Projeção calculada com sucesso!",
@@ -129,6 +132,7 @@ const profileFormSchema = z.object({
   activityLevel: z.string().optional(),
   dietaryPreferences: z.string().optional(),
   dailyCalorieGoal: z.coerce.number().optional().or(z.literal('')),
+  goalTimelineWeeks: z.coerce.number().optional().or(z.literal('')),
 });
 
 
@@ -155,13 +159,12 @@ export async function updateProfile(
         };
     }
     
-     // Prevent empty strings from being saved, only save what's provided
      const dataToSave: Record<string, any> = {};
      for (const [key, value] of Object.entries(validatedFields.data)) {
          if (value !== '' && value !== undefined && value !== null) {
               if (['currentWeight', 'height', 'weightGoal', 'age', 'dailyCalorieGoal'].includes(key)) {
                 dataToSave[key] = Number(value);
-              } else {
+              } else if (key !== 'goalTimelineWeeks') { // Don't save timeline to profile
                 dataToSave[key] = value;
               }
          }

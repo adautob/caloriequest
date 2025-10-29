@@ -8,30 +8,48 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Save } from 'lucide-react';
+import { Loader2, Save, Wand2, Check, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useDoc, setDocumentNonBlocking, addDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { doc, collection, serverTimestamp } from 'firebase/firestore';
-import { updateProfile, UpdateProfileState } from '@/app/actions';
+import { updateProfile, UpdateProfileState, getGoalProjection } from '@/app/actions';
 import type { UserProfile } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
 
-const initialState: UpdateProfileState = {
+const initialProfileState: UpdateProfileState = {
     message: "",
     data: null,
     errors: null,
     success: false,
 };
 
+const initialProjectionState = {
+  message: null,
+  data: null,
+  errors: null,
+};
+
+
 function SubmitButton() {  
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending}>
+    <Button type="submit" name="intent" value="updateProfile" disabled={pending} variant="secondary">
       {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
       Salvar Alterações
     </Button>
   );
 }
+
+function ProjectionSubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+     <Button type="submit" name="intent" value="getGoalProjection" disabled={pending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+      {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
+      Calcular Projeção com IA
+    </Button>
+  );
+}
+
 
 function calculateBmi(weight: number | undefined, height: number | undefined): number | null {
     if (!weight || !height || height === 0) return null;
@@ -54,9 +72,11 @@ export default function ProfileForm() {
     const { toast } = useToast();
     const { user } = useUser();
     const firestore = useFirestore();
-    const [state, formAction] = useActionState(updateProfile, initialState);
     const formRef = useRef<HTMLFormElement>(null);
     const weightFormRef = useRef<HTMLFormElement>(null);
+
+    const [profileState, profileAction] = useActionState(updateProfile, initialProfileState);
+    const [projectionState, projectionAction] = useActionState(getGoalProjection, initialProjectionState);
 
     const userProfileRef = useMemoFirebase(() => {
         if (!user || !firestore) return null;
@@ -69,11 +89,12 @@ export default function ProfileForm() {
     const [height, setHeight] = useState<number | undefined>(userProfile?.height);
     const [newWeight, setNewWeight] = useState<string>('');
 
+    const [formKey, setFormKey] = useState(Date.now());
+    const [isEditingGoal, setIsEditingGoal] = useState(false);
+    const [customGoal, setCustomGoal] = useState<number | string>('');
 
     const bmi = useMemo(() => calculateBmi(weight, height), [weight, height]);
     const bmiCategory = getBmiCategory(bmi);
-    
-    const [formKey, setFormKey] = useState(Date.now());
     
     useEffect(() => {
         if (userProfile) {
@@ -83,25 +104,37 @@ export default function ProfileForm() {
         }
     }, [userProfile]);
 
-    useEffect(() => {
-        if (state.success && state.data && userProfileRef) {
+     useEffect(() => {
+        if (profileState.success && profileState.data && userProfileRef) {
             toast({
                 title: "Sucesso!",
                 description: "Seu perfil foi atualizado.",
             });
 
-            const profileUpdate = state.data;
-
+            const profileUpdate = profileState.data;
             setDocumentNonBlocking(userProfileRef, profileUpdate, { merge: true });
 
-        } else if (state.message && state.errors) {
+        } else if (profileState.message && profileState.errors) {
             toast({
                 title: "Erro ao salvar",
-                description: state.message,
+                description: profileState.message,
                 variant: "destructive",
             });
         }
-    }, [state, toast, userProfileRef]);
+    }, [profileState, toast, userProfileRef]);
+
+    useEffect(() => {
+        if (projectionState.message && (projectionState.errors || (!projectionState.data && !projectionState.errors))) {
+        toast({
+            title: "Erro na Projeção",
+            description: projectionState.message,
+            variant: "destructive",
+        });
+        }
+        if (projectionState.data?.recommendedDailyCalories) {
+        setCustomGoal(Math.round(projectionState.data.recommendedDailyCalories));
+        }
+    }, [projectionState, toast]);
 
     const handleAddWeightMeasurement = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -122,11 +155,9 @@ export default function ProfileForm() {
             createdAt: serverTimestamp(),
         });
         
-        // Also update currentWeight on the profile
         if(userProfileRef){
             setDocumentNonBlocking(userProfileRef, { currentWeight: weightValue }, { merge: true });
         }
-
 
         toast({
             title: "Peso Registrado!",
@@ -136,6 +167,34 @@ export default function ProfileForm() {
         setNewWeight('');
         weightFormRef.current?.reset();
     };
+
+    const handleFormAction = (formData: FormData) => {
+        const intent = formData.get('intent');
+        if (intent === 'getGoalProjection') {
+            projectionAction(formData);
+        } else {
+            profileAction(formData);
+        }
+    }
+
+    const handleAcceptGoal = (newGoal: number) => {
+        if (!userProfileRef) return;
+        setDocumentNonBlocking(userProfileRef, { dailyCalorieGoal: newGoal }, { merge: true });
+        toast({
+        title: "Meta Atualizada!",
+        description: `Sua nova meta diária de calorias é ${newGoal} kcal.`,
+        });
+    }
+
+    const handleSaveCustomGoal = () => {
+        const newGoal = Number(customGoal);
+        if (isNaN(newGoal) || newGoal <= 0) {
+        toast({ title: "Valor inválido", description: "Por favor, insira uma meta de calorias válida.", variant: "destructive" });
+        return;
+        }
+        handleAcceptGoal(newGoal);
+        setIsEditingGoal(false);
+    }
     
     if (isProfileLoading) {
         return (
@@ -172,29 +231,31 @@ export default function ProfileForm() {
 
     return (
         <div className="space-y-6">
-            <Card>
-                <CardHeader>
-                    <CardTitle className="font-headline">Meu Perfil</CardTitle>
-                    <CardDescription>
-                        Atualize suas informações pessoais e metas de saúde.
-                    </CardDescription>
-                </CardHeader>
-                <form action={formAction} key={formKey} ref={formRef}>
+            <form action={handleFormAction} key={formKey} ref={formRef}>
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="font-headline">Meu Perfil</CardTitle>
+                        <CardDescription>
+                            Atualize suas informações para obter projeções e dicas personalizadas da IA.
+                        </CardDescription>
+                    </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="space-y-2">
                             <Label htmlFor="name">Nome</Label>
                             <Input id="name" name="name" defaultValue={userProfile?.name || user?.displayName || ''} required/>
-                            {state.errors?.name && <p className="text-destructive text-sm mt-1">{state.errors.name[0]}</p>}
+                            {profileState.errors?.name && <p className="text-destructive text-sm mt-1">{profileState.errors.name[0]}</p>}
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="currentWeight">Peso Atual (kg)</Label>
                                 <Input id="currentWeight" name="currentWeight" type="number" step="0.1" defaultValue={userProfile?.currentWeight || ''} onChange={e => setWeight(Number(e.target.value))} />
+                                {projectionState.errors?.currentWeight && <p className="text-destructive text-sm mt-1">{projectionState.errors.currentWeight[0]}</p>}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="height">Altura (cm)</Label>
                                 <Input id="height" name="height" type="number" defaultValue={userProfile?.height || ''} onChange={e => setHeight(Number(e.target.value))}/>
+                                {projectionState.errors?.height && <p className="text-destructive text-sm mt-1">{projectionState.errors.height[0]}</p>}
                             </div>
                             <div className="space-y-2">
                                 <Label>Seu IMC</Label>
@@ -211,6 +272,7 @@ export default function ProfileForm() {
                             <div className="space-y-2">
                                 <Label htmlFor="weightGoal">Meta de Peso (kg)</Label>
                                 <Input id="weightGoal" name="weightGoal" type="number" step="0.1" defaultValue={userProfile?.weightGoal || ''} />
+                                {projectionState.errors?.goalWeight && <p className="text-destructive text-sm mt-1">{projectionState.errors.goalWeight[0]}</p>}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="dailyCalorieGoal">Meta Diária de Calorias (kcal)</Label>
@@ -218,13 +280,11 @@ export default function ProfileForm() {
                             </div>
                         </div>
 
-                        <h3 className="text-lg font-medium text-foreground pt-4 border-t">Dados para Projeção da IA</h3>
-                        <p className="text-sm text-muted-foreground -mt-4">Essas informações são usadas pela IA para criar projeções e dicas personalizadas.</p>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="age">Idade</Label>
                                 <Input id="age" name="age" type="number" defaultValue={userProfile?.age || ''} />
+                                {projectionState.errors?.age && <p className="text-destructive text-sm mt-1">{projectionState.errors.age[0]}</p>}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="gender">Gênero</Label>
@@ -241,7 +301,7 @@ export default function ProfileForm() {
 
                         <div className="space-y-2">
                             <Label htmlFor="activityLevel">Nível de Atividade</Label>
-                            <Select name="activityLevel" defaultValue={userProfile?.activityLevel || undefined}>
+                            <Select name="activityLevel" defaultValue={userProfile?.activityLevel || "lightly active"}>
                             <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="sedentary">Sedentário</SelectItem>
@@ -256,20 +316,74 @@ export default function ProfileForm() {
                         <div className="space-y-2">
                             <Label htmlFor="dietaryPreferences">Preferências Alimentares</Label>
                             <Textarea id="dietaryPreferences" name="dietaryPreferences" placeholder="Ex: Vegetariano, baixo carboidrato, sem glúten..." defaultValue={userProfile?.dietaryPreferences || ''}/>
+                             {projectionState.errors?.dietaryPreferences && <p className="text-destructive text-sm mt-1">{projectionState.errors.dietaryPreferences[0]}</p>}
+                        </div>
+
+                        <div className="space-y-2 pt-4 border-t">
+                            <Label htmlFor="goalTimelineWeeks">Em quanto tempo (semanas) quer atingir a meta?</Label>
+                            <Input id="goalTimelineWeeks" name="goalTimelineWeeks" type="number" defaultValue="12" required />
+                            {projectionState.errors?.goalTimelineWeeks && <p className="text-destructive text-sm mt-1">{projectionState.errors.goalTimelineWeeks[0]}</p>}
                         </div>
 
                     </CardContent>
-                    <CardFooter>
-                        <SubmitButton />
+                    <CardFooter className="flex-col items-stretch gap-4 bg-muted/30 p-4">
+                        <div className="flex flex-col sm:flex-row gap-2 justify-end">
+                            <SubmitButton />
+                            <ProjectionSubmitButton />
+                        </div>
+                        {projectionState.data && (
+                            <div className="mt-4 p-4 bg-primary/10 rounded-lg border border-primary/20 w-full space-y-4 animate-in fade-in-50 duration-500">
+                            <h3 className="font-headline text-lg font-semibold text-primary-foreground/90">Plano Sugerido pela IA ✨</h3>
+                            
+                            <div className="bg-background/50 rounded-md p-3">
+                                <Label>Meta de Calorias Diária</Label>
+                                {isEditingGoal ? (
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <Input 
+                                            type="number" 
+                                            value={customGoal} 
+                                            onChange={(e) => setCustomGoal(e.target.value)} 
+                                            className="max-w-[120px]"
+                                        />
+                                        <Button size="sm" onClick={handleSaveCustomGoal}><Check className="mr-2"/>Salvar</Button>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2 mt-1">
+                                    <p className="text-2xl font-bold text-accent">{Math.round(projectionState.data.recommendedDailyCalories)} <span className="text-sm font-normal text-muted-foreground">kcal</span></p>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsEditingGoal(true)}>
+                                        <Edit className="h-4 w-4" />
+                                    </Button>
+                                    </div>
+                                )}
+                                <div className="flex gap-2 mt-3">
+                                    <Button 
+                                        size="sm" 
+                                        onClick={() => handleAcceptGoal(Math.round(projectionState.data!.recommendedDailyCalories))}
+                                        disabled={isEditingGoal}
+                                        >
+                                        <Check className="mr-2"/> Aceitar Meta
+                                    </Button>
+                                </div>
+                            </div>
+
+                            <div className="pt-2">
+                                <h4 className="font-semibold pt-2">Dicas Personalizadas:</h4>
+                                <p className="text-sm whitespace-pre-wrap">{projectionState.data.personalizedTips}</p>
+                            </div>
+                            <p className="text-xs text-muted-foreground pt-2">
+                                Isso se baseia em um déficit diário de <span className="font-semibold">{Math.round(projectionState.data.requiredWeeklyDeficit / 7)} calorias</span>.
+                            </p>
+                            </div>
+                        )}
                     </CardFooter>
-                </form>
-            </Card>
+                </Card>
+            </form>
 
             <Card>
                 <CardHeader>
                     <CardTitle className="font-headline">Registrar Novo Peso</CardTitle>
                     <CardDescription>
-                        Adicione uma nova medição de peso para acompanhar seu progresso.
+                        Adicione uma nova medição de peso para acompanhar seu progresso. Isso também atualizará seu peso atual no perfil.
                     </CardDescription>
                 </CardHeader>
                  <form onSubmit={handleAddWeightMeasurement} ref={weightFormRef}>

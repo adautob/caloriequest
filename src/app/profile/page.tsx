@@ -2,7 +2,6 @@
 import Header from "@/components/Header";
 import ProfileForm from "@/components/profile/ProfileForm";
 import ProtectedPage from "@/components/auth/ProtectedPage";
-import GoalProjection from "@/components/profile/GoalProjection";
 
 export default function ProfilePage() {
     return (
@@ -13,7 +12,6 @@ export default function ProfilePage() {
                     <div className="mx-auto grid w-full max-w-4xl items-start gap-6">
                         <div className="grid gap-6">
                             <ProfileForm />
-                            <GoalProjection />
                         </div>
                     </div>
                 </main>
