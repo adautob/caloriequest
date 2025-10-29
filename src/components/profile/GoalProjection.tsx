@@ -94,24 +94,24 @@ export default function GoalProjection() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="currentWeight">Peso Atual (kg)</Label>
-              <Input id="currentWeight" name="currentWeight" type="number" step="0.1" required defaultValue={userProfile?.currentWeight || 85} />
+              <Input id="currentWeight" name="currentWeight" type="number" step="0.1" required defaultValue={userProfile?.currentWeight || ''} />
               {state.errors?.currentWeight && <p className="text-destructive text-sm mt-1">{state.errors.currentWeight[0]}</p>}
             </div>
             <div>
               <Label htmlFor="goalWeight">Meta de Peso (kg)</Label>
-              <Input id="goalWeight" name="goalWeight" type="number" step="0.1" required defaultValue={userProfile?.weightGoal || 75} />
+              <Input id="goalWeight" name="goalWeight" type="number" step="0.1" required defaultValue={userProfile?.weightGoal || ''} />
               {state.errors?.goalWeight && <p className="text-destructive text-sm mt-1">{state.errors.goalWeight[0]}</p>}
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="height">Altura (cm)</Label>
-              <Input id="height" name="height" type="number" required defaultValue={userProfile?.height || 180}/>
+              <Input id="height" name="height" type="number" required defaultValue={userProfile?.height || ''}/>
                {state.errors?.height && <p className="text-destructive text-sm mt-1">{state.errors.height[0]}</p>}
             </div>
             <div>
               <Label htmlFor="age">Idade</Label>
-              <Input id="age" name="age" type="number" required defaultValue={userProfile?.age || 30}/>
+              <Input id="age" name="age" type="number" required defaultValue={userProfile?.age || ''}/>
               {state.errors?.age && <p className="text-destructive text-sm mt-1">{state.errors.age[0]}</p>}
             </div>
           </div>
@@ -140,9 +140,9 @@ export default function GoalProjection() {
             </Select>
           </div>
           <div>
-            <Label htmlFor="weeklyCalorieDeficit">Déficit Calórico Semanal</Label>
-            <Input id="weeklyCalorieDeficit" name="weeklyCalorieDeficit" type="number" defaultValue="3500" required />
-            {state.errors?.weeklyCalorieDeficit && <p className="text-destructive text-sm mt-1">{state.errors.weeklyCalorieDeficit[0]}</p>}
+            <Label htmlFor="goalTimelineWeeks">Meta de tempo (semanas)</Label>
+            <Input id="goalTimelineWeeks" name="goalTimelineWeeks" type="number" defaultValue="12" required />
+            {state.errors?.goalTimelineWeeks && <p className="text-destructive text-sm mt-1">{state.errors.goalTimelineWeeks[0]}</p>}
           </div>
           <div>
             <Label htmlFor="dietaryPreferences">Preferências Alimentares</Label>
@@ -154,9 +154,12 @@ export default function GoalProjection() {
           <SubmitButton />
           {state.data && (
             <div className="mt-4 p-4 bg-primary/10 rounded-lg border border-primary/20 w-full space-y-3 animate-in fade-in-50 duration-500">
-              <h3 className="font-headline text-lg font-semibold text-primary-foreground/90">Sua Projeção ✨</h3>
+              <h3 className="font-headline text-lg font-semibold text-primary-foreground/90">Seu Plano ✨</h3>
               <p>
-                Você pode atingir sua meta em aproximadamente <span className="font-bold text-accent">{state.data.projectedTimelineWeeks} semanas</span>.
+                Para atingir sua meta no tempo desejado, você precisará de um déficit calórico semanal de aproximadamente <span className="font-bold text-accent">{Math.round(state.data.requiredWeeklyDeficit)} calorias</span>.
+              </p>
+               <p className="text-sm text-muted-foreground">
+                Isso equivale a um déficit diário de <span className="font-semibold">{Math.round(state.data.requiredWeeklyDeficit / 7)} calorias</span>.
               </p>
               <h4 className="font-semibold pt-2">Dicas Personalizadas:</h4>
               <p className="text-sm whitespace-pre-wrap">{state.data.personalizedTips}</p>

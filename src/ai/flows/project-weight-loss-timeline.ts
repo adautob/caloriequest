@@ -9,12 +9,12 @@
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
+import {z} from 'zod';
 
 const ProjectWeightLossTimelineInputSchema = z.object({
   currentWeight: z.number().describe('The current weight of the user in kilograms.'),
   goalWeight: z.number().describe('The desired weight of the user in kilograms.'),
-  weeklyCalorieDeficit: z.number().describe('The average weekly calorie deficit of the user.'),
+  goalTimelineWeeks: z.number().describe('The number of weeks the user wants to take to reach their goal.'),
   weeklyWeightChange: z.number().optional().describe('The average weekly weight change of the user.'),
   activityLevel: z.string().describe('The activity level of the user (sedentary, lightly active, moderately active, very active, extra active).'),
   dietaryPreferences: z.string().describe('The dietary preferences of the user (e.g., vegetarian, vegan, keto).'),
@@ -25,7 +25,7 @@ const ProjectWeightLossTimelineInputSchema = z.object({
 export type ProjectWeightLossTimelineInput = z.infer<typeof ProjectWeightLossTimelineInputSchema>;
 
 const ProjectWeightLossTimelineOutputSchema = z.object({
-  projectedTimelineWeeks: z.number().describe('The projected number of weeks to reach the goal weight.'),
+  requiredWeeklyDeficit: z.number().describe('The required weekly calorie deficit to reach the goal in the specified timeline.'),
   personalizedTips: z.string().describe('Personalized tips for the user to help them reach their goal.'),
 });
 export type ProjectWeightLossTimelineOutput = z.infer<typeof ProjectWeightLossTimelineOutputSchema>;
@@ -40,12 +40,12 @@ const projectWeightLossTimelinePrompt = ai.definePrompt({
   name: 'projectWeightLossTimelinePrompt',
   input: {schema: ProjectWeightLossTimelineInputSchema},
   output: {schema: ProjectWeightLossTimelineOutputSchema},
-  prompt: `You are an expert weight loss coach. You will project a timeline for the user to reach their weight loss goal, and provide personalized tips.
+  prompt: `You are an expert weight loss coach. You will calculate the required weekly calorie deficit for a user to reach their weight loss goal in a specified number of weeks and provide personalized tips.
 
   Here is information about the user:
   - Current weight: {{currentWeight}} kg
   - Goal weight: {{goalWeight}} kg
-  - Weekly calorie deficit: {{weeklyCalorieDeficit}} calories
+  - Desired timeline: {{goalTimelineWeeks}} weeks
   {{#if weeklyWeightChange}}- Average weekly weight change: {{weeklyWeightChange}} kg{{/if}}
   - Activity level: {{activityLevel}}
   - Dietary preferences: {{dietaryPreferences}}
@@ -53,13 +53,13 @@ const projectWeightLossTimelinePrompt = ai.definePrompt({
   - Gender: {{gender}}
   - Height: {{height}} cm
 
-  Based on this information, project the number of weeks it will take for the user to reach their goal weight. Take into account that 1 kg of fat is approximately 7700 calories.
+  Based on this information, calculate the required weekly calorie deficit to reach the goal weight in the specified timeline. Assume that 1 kg of fat is approximately 7700 calories. The total weight to lose is (currentWeight - goalWeight). The total calorie deficit needed is (total weight to lose * 7700). The required weekly deficit is (total calorie deficit / goalTimelineWeeks).
 
-  Also, provide personalized tips for the user to help them reach their goal, taking into account their activity level and dietary preferences.
+  Also, provide personalized tips for the user to help them reach their goal, taking into account their activity level and dietary preferences. The tips should be encouraging and actionable.
 
   Your response should be in the following format:
   {
-    "projectedTimelineWeeks": <number>,
+    "requiredWeeklyDeficit": <number>,
     "personalizedTips": <string>
   }`,
 });

@@ -3,7 +3,6 @@ import CalorieSummary from '@/components/dashboard/CalorieSummary';
 import MealList from '@/components/dashboard/MealList';
 import WeightProgressChart from '@/components/dashboard/WeightProgressChart';
 import AchievementList from '@/components/dashboard/AchievementList';
-import GoalProjection from '@/components/dashboard/GoalProjection';
 import ProtectedPage from '@/components/auth/ProtectedPage';
 import MacronutrientSummary from '@/components/dashboard/MacronutrientSummary';
 
@@ -18,7 +17,7 @@ export default function Home() {
             <MacronutrientSummary />
           </div>
           <div className="grid grid-cols-1 gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3">
-            <div className="flex flex-col gap-4 rounded-xl">
+            <div className="flex flex-col gap-4 rounded-xl xl:col-span-2">
               <MealList />
             </div>
             <div className="flex flex-col gap-4 rounded-xl">
@@ -26,9 +25,6 @@ export default function Home() {
                 <WeightProgressChart />
                 <AchievementList />
               </div>
-            </div>
-            <div className="flex flex-col gap-4 rounded-xl xl:col-span-1">
-               <GoalProjection />
             </div>
           </div>
         </main>

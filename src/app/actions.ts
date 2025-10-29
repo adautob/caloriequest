@@ -14,7 +14,7 @@ const goalProjectionFormSchema = z.object({
   gender: z.string(),
   activityLevel: z.string(),
   dietaryPreferences: z.string().min(3, "Preferências muito curtas."),
-  weeklyCalorieDeficit: z.coerce.number().min(100, "Déficit calórico deve ser no mínimo 100."),
+  goalTimelineWeeks: z.coerce.number().min(1, "O tempo para atingir a meta deve ser de pelo menos 1 semana."),
 }).refine(data => data.currentWeight > data.goalWeight, {
   message: "O peso atual deve ser maior que a meta de peso.",
   path: ["goalWeight"],
@@ -23,7 +23,7 @@ const goalProjectionFormSchema = z.object({
 type GoalProjectionState = {
   message?: string | null;
   data?: {
-    projectedTimelineWeeks: number;
+    requiredWeeklyDeficit: number;
     personalizedTips: string;
   } | null;
   errors?: {
@@ -152,11 +152,19 @@ export async function updateProfile(
         };
     }
     
-    return {
-        message: "Dados validados com sucesso! O perfil será atualizado.",
-        data: validatedFields.data,
-        errors: null,
-        success: true,
-    }
+     // Prevent empty strings from being saved, only save what's provided
+     const dataToSave: Record<string, any> = {};
+     for (const [key, value] of Object.entries(validatedFields.data)) {
+         if (value !== '' && value !== undefined) {
+             dataToSave[key] = value;
+         }
+     }
+ 
+     return {
+         message: "Dados validados com sucesso! O perfil será atualizado.",
+         data: dataToSave,
+         errors: null,
+         success: true,
+     }
 }
     
