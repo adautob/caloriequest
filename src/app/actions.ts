@@ -8,28 +8,13 @@ import { z } from "zod";
 // --- Goal Projection Action ---
 
 const goalProjectionFormSchema = z.object({
-    currentWeight: z.preprocess(
-        val => (val === "" || val === null ? undefined : val),
-        z.coerce.number({ required_error: "Peso atual é obrigatório." }).min(30, "Peso deve ser no mínimo 30kg.")
-    ),
-    goalWeight: z.preprocess(
-        val => (val === "" || val === null ? undefined : val),
-        z.coerce.number({ required_error: "Meta de peso é obrigatória." }).min(30, "Meta de peso deve ser no mínimo 30kg.")
-    ),
-    height: z.preprocess(
-        val => (val === "" || val === null ? undefined : val),
-        z.coerce.number({ required_error: "Altura é obrigatória." }).min(100, "Altura deve ser no mínimo 100cm.")
-    ),
-    age: z.preprocess(
-        val => (val === "" || val === null ? undefined : val),
-        z.coerce.number({ required_error: "Idade é obrigatória." }).min(13, "Você deve ter pelo menos 13 anos.")
-    ),
+    currentWeight: z.coerce.number({ required_error: "Peso atual é obrigatório." }).min(30, "Peso deve ser no mínimo 30kg."),
+    goalWeight: z.coerce.number({ required_error: "Meta de peso é obrigatória." }).min(30, "Meta de peso deve ser no mínimo 30kg."),
+    height: z.coerce.number({ required_error: "Altura é obrigatória." }).min(100, "Altura deve ser no mínimo 100cm."),
+    age: z.coerce.number({ required_error: "Idade é obrigatória." }).min(13, "Você deve ter pelo menos 13 anos."),
     gender: z.string({ required_error: "Gênero é obrigatório." }).min(1, "Gênero é obrigatório."),
     activityLevel: z.string({ required_error: "Nível de atividade é obrigatório." }).min(1, "Nível de atividade é obrigatório."),
-    goalTimelineWeeks: z.preprocess(
-        val => (val === "" || val === null ? undefined : val),
-        z.coerce.number({ required_error: "O tempo para atingir a meta é obrigatório." }).min(1, "O tempo para atingir a meta deve ser de pelo menos 1 semana.")
-    ),
+    goalTimelineWeeks: z.coerce.number({ required_error: "O tempo para atingir a meta é obrigatório." }).min(1, "O tempo para atingir a meta deve ser de pelo menos 1 semana."),
     dietaryPreferences: z.string().optional(),
 }).refine(data => data.currentWeight > data.goalWeight, {
   message: "O peso atual deve ser maior que a meta de peso.",
@@ -148,7 +133,6 @@ const profileFormSchema = z.object({
   activityLevel: z.string().optional(),
   dietaryPreferences: z.string().optional(),
   dailyCalorieGoal: z.preprocess(val => val === '' ? undefined : val, z.coerce.number().optional()),
-  goalTimelineWeeks: z.preprocess(val => val === '' ? undefined : val, z.coerce.number().optional()),
 });
 
 
@@ -180,7 +164,7 @@ export async function updateProfile(
          if (value !== '' && value !== undefined && value !== null) {
               if (['currentWeight', 'height', 'weightGoal', 'age', 'dailyCalorieGoal'].includes(key)) {
                 dataToSave[key] = Number(value);
-              } else if (key !== 'goalTimelineWeeks') { // Don't save timeline to profile
+              } else {
                 dataToSave[key] = value;
               }
          }

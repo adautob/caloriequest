@@ -33,7 +33,7 @@ const initialProjectionState = {
 function SubmitButton() {  
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" name="intent" value="updateProfile" disabled={pending} variant="secondary">
+    <Button type="submit" disabled={pending} variant="secondary">
       {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
       Salvar Alterações
     </Button>
@@ -43,7 +43,7 @@ function SubmitButton() {
 function ProjectionSubmitButton() {
   const { pending } = useFormStatus();
   return (
-     <Button type="submit" name="intent" value="getGoalProjection" disabled={pending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+     <Button type="submit" disabled={pending} className="bg-primary hover:bg-primary/90 text-primary-foreground">
       {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
       Calcular Projeção com IA
     </Button>
@@ -72,7 +72,6 @@ export default function ProfileForm() {
     const { toast } = useToast();
     const { user } = useUser();
     const firestore = useFirestore();
-    const formRef = useRef<HTMLFormElement>(null);
     const weightFormRef = useRef<HTMLFormElement>(null);
 
     const [profileState, profileAction] = useActionState(updateProfile, initialProfileState);
@@ -225,15 +224,6 @@ export default function ProfileForm() {
         weightFormRef.current?.reset();
     };
 
-    const handleFormAction = (formData: FormData) => {
-        const intent = formData.get('intent');
-        if (intent === 'getGoalProjection') {
-            projectionAction(formData);
-        } else {
-            profileAction(formData);
-        }
-    }
-
     const handleAcceptGoal = (newGoal: number) => {
         if (!userProfileRef) return;
         setDocumentNonBlocking(userProfileRef, { dailyCalorieGoal: newGoal }, { merge: true });
@@ -288,8 +278,8 @@ export default function ProfileForm() {
 
     return (
         <div className="space-y-6">
-            <form action={handleFormAction} key={formKey} ref={formRef}>
-                <Card>
+            <Card>
+              <form action={profileAction} key={formKey}>
                     <CardHeader>
                         <CardTitle className="font-headline">Meu Perfil</CardTitle>
                         <CardDescription>
@@ -307,12 +297,12 @@ export default function ProfileForm() {
                             <div className="space-y-2">
                                 <Label htmlFor="currentWeight">Peso Atual (kg)</Label>
                                 <Input id="currentWeight" name="currentWeight" type="number" step="0.1" defaultValue={userProfile?.currentWeight || ''} onChange={e => setWeight(Number(e.target.value))} />
-                                {projectionState.errors?.currentWeight && <p className="text-destructive text-sm mt-1">{projectionState.errors.currentWeight[0]}</p>}
+                                {profileState.errors?.currentWeight && <p className="text-destructive text-sm mt-1">{profileState.errors.currentWeight[0]}</p>}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="height">Altura (cm)</Label>
                                 <Input id="height" name="height" type="number" defaultValue={userProfile?.height || ''} onChange={e => setHeight(Number(e.target.value))}/>
-                                {projectionState.errors?.height && <p className="text-destructive text-sm mt-1">{projectionState.errors.height[0]}</p>}
+                                 {profileState.errors?.height && <p className="text-destructive text-sm mt-1">{profileState.errors.height[0]}</p>}
                             </div>
                             <div className="space-y-2">
                                 <Label>Seu IMC</Label>
@@ -329,7 +319,7 @@ export default function ProfileForm() {
                             <div className="space-y-2">
                                 <Label htmlFor="weightGoal">Meta de Peso (kg)</Label>
                                 <Input id="weightGoal" name="weightGoal" type="number" step="0.1" defaultValue={userProfile?.weightGoal || ''} />
-                                {projectionState.errors?.goalWeight && <p className="text-destructive text-sm mt-1">{projectionState.errors.goalWeight[0]}</p>}
+                                {profileState.errors?.weightGoal && <p className="text-destructive text-sm mt-1">{profileState.errors.weightGoal[0]}</p>}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="dailyCalorieGoal">Meta Diária de Calorias (kcal)</Label>
@@ -341,7 +331,7 @@ export default function ProfileForm() {
                             <div className="space-y-2">
                                 <Label htmlFor="age">Idade</Label>
                                 <Input id="age" name="age" type="number" defaultValue={userProfile?.age || ''} />
-                                {projectionState.errors?.age && <p className="text-destructive text-sm mt-1">{projectionState.errors.age[0]}</p>}
+                                {profileState.errors?.age && <p className="text-destructive text-sm mt-1">{profileState.errors.age[0]}</p>}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="gender">Gênero</Label>
@@ -373,21 +363,37 @@ export default function ProfileForm() {
                         <div className="space-y-2">
                             <Label htmlFor="dietaryPreferences">Preferências Alimentares</Label>
                             <Textarea id="dietaryPreferences" name="dietaryPreferences" placeholder="Ex: Vegetariano, baixo carboidrato, sem glúten..." defaultValue={userProfile?.dietaryPreferences || ''}/>
-                             {projectionState.errors?.dietaryPreferences && <p className="text-destructive text-sm mt-1">{projectionState.errors.dietaryPreferences[0]}</p>}
                         </div>
+                    </CardContent>
+                     <CardFooter className="flex justify-end p-4">
+                        <SubmitButton />
+                    </CardFooter>
+                </form>
 
+                 <form action={projectionAction}>
+                    {/* Hidden fields to pass data to the projection action */}
+                    <input type="hidden" name="name" value={userProfile?.name || user?.displayName || ''} />
+                    <input type="hidden" name="currentWeight" value={weight || ''} />
+                    <input type="hidden" name="height" value={height || ''} />
+                    {/* We need all fields from the main form to be available here */}
+                    <input type="hidden" name="weightGoal" value={formKey ? (document.getElementById('weightGoal') as HTMLInputElement)?.value : userProfile?.weightGoal || ''} />
+                    <input type="hidden" name="age" value={formKey ? (document.getElementById('age') as HTMLInputElement)?.value : userProfile?.age || ''} />
+                    <input type="hidden" name="gender" value={formKey ? (document.querySelector('[name="gender"]') as HTMLSelectElement)?.value : userProfile?.gender || ''} />
+                    <input type="hidden" name="activityLevel" value={formKey ? (document.querySelector('[name="activityLevel"]') as HTMLSelectElement)?.value : userProfile?.activityLevel || ''} />
+                    <input type="hidden" name="dietaryPreferences" value={formKey ? (document.getElementById('dietaryPreferences') as HTMLTextAreaElement)?.value : userProfile?.dietaryPreferences || ''} />
+                
+                    <div className="p-4 pt-0">
                         <div className="space-y-2 pt-4 border-t">
                             <Label htmlFor="goalTimelineWeeks">Em quanto tempo (semanas) quer atingir a meta?</Label>
                             <Input id="goalTimelineWeeks" name="goalTimelineWeeks" type="number" defaultValue="12" required />
                             {projectionState.errors?.goalTimelineWeeks && <p className="text-destructive text-sm mt-1">{projectionState.errors.goalTimelineWeeks[0]}</p>}
                         </div>
-
-                    </CardContent>
+                    </div>
                     <CardFooter className="flex-col items-stretch gap-4 bg-muted/30 p-4">
-                        <div className="flex flex-col sm:flex-row gap-2 justify-end">
-                            <SubmitButton />
+                        <div className="flex justify-end">
                             <ProjectionSubmitButton />
                         </div>
+                        {projectionState.errors?.goalWeight && <p className="text-destructive text-sm mt-1">{projectionState.errors.goalWeight[0]}</p>}
                         {projectionState.data && (
                             <div className="mt-4 p-4 bg-primary/10 rounded-lg border border-primary/20 w-full space-y-4 animate-in fade-in-50 duration-500">
                             <h3 className="font-headline text-lg font-semibold text-primary-foreground/90">Plano Sugerido pela IA ✨</h3>
@@ -433,8 +439,8 @@ export default function ProfileForm() {
                             </div>
                         )}
                     </CardFooter>
-                </Card>
-            </form>
+                </form>
+            </Card>
 
             <Card>
                 <CardHeader>
