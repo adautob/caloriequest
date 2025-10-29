@@ -12,12 +12,13 @@ import { Loader2, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { updateProfile } from '@/app/actions';
+import { updateProfile, UpdateProfileState } from '@/app/actions';
 import type { UserProfile } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
 
-const initialState = {
+const initialState: UpdateProfileState = {
     message: "",
+    data: null,
     errors: null,
     success: false,
 };
@@ -69,53 +70,31 @@ export default function ProfileForm() {
     const bmi = useMemo(() => calculateBmi(weight, height), [weight, height]);
     const bmiCategory = getBmiCategory(bmi);
     
-    // Add a state for the form key
     const [formKey, setFormKey] = useState(Date.now());
     
     useEffect(() => {
         if (userProfile) {
             setWeight(userProfile.currentWeight);
             setHeight(userProfile.height);
-            // When userProfile data changes, update the form key to force a re-render
             setFormKey(Date.now());
         }
     }, [userProfile]);
 
     useEffect(() => {
-        if (state.success) {
+        if (state.success && state.data && userProfileRef) {
             toast({
                 title: "Sucesso!",
                 description: state.message,
             });
-            const form = formRef.current;
-            if (form && userProfileRef) {
-                const formData = new FormData(form);
-                const validatedData = Object.fromEntries(formData.entries());
 
-                const getNumberOrUndefined = (value: any) => {
-                    const strValue = String(value).trim();
-                    if (strValue === null || strValue === '') return undefined;
-                    const num = Number(strValue);
-                    return isNaN(num) ? undefined : num;
-                };
+            // Filter out any properties from state.data that are undefined or null
+            // to prevent them from being written to Firestore.
+            const profileUpdate = Object.fromEntries(
+                Object.entries(state.data).filter(([, value]) => value !== undefined && value !== null && value !== '')
+            );
 
-                const profileUpdate = {
-                    name: validatedData.name,
-                    currentWeight: getNumberOrUndefined(validatedData.currentWeight),
-                    height: getNumberOrUndefined(validatedData.height),
-                    weightGoal: getNumberOrUndefined(validatedData.weightGoal),
-                    age: getNumberOrUndefined(validatedData.age),
-                    gender: validatedData.gender,
-                    activityLevel: validatedData.activityLevel,
-                    dietaryPreferences: validatedData.dietaryPreferences,
-                };
-                
-                const finalProfileData = Object.fromEntries(
-                    Object.entries(profileUpdate).filter(([, value]) => value !== undefined)
-                );
+            setDocumentNonBlocking(userProfileRef, profileUpdate, { merge: true });
 
-                setDocumentNonBlocking(userProfileRef, finalProfileData, { merge: true });
-            }
         } else if (state.message && state.errors) {
             toast({
                 title: "Erro ao salvar",

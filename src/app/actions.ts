@@ -119,18 +119,19 @@ export async function addMeal(
 
 const profileFormSchema = z.object({
   name: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
-  currentWeight: z.coerce.number().optional(),
-  height: z.coerce.number().optional(),
-  weightGoal: z.coerce.number().optional(),
-  age: z.coerce.number().optional(),
+  currentWeight: z.coerce.number().optional().or(z.literal('')),
+  height: z.coerce.number().optional().or(z.literal('')),
+  weightGoal: z.coerce.number().optional().or(z.literal('')),
+  age: z.coerce.number().optional().or(z.literal('')),
   gender: z.string().optional(),
   activityLevel: z.string().optional(),
   dietaryPreferences: z.string().optional(),
 });
 
 
-type UpdateProfileState = {
+export type UpdateProfileState = {
     message: string;
+    data?: z.infer<typeof profileFormSchema> | null,
     errors?: {
         [key: string]: string[] | undefined;
     } | null;
@@ -151,14 +152,9 @@ export async function updateProfile(
         };
     }
     
-    // This is a server action, but we can't interact with Firebase from here
-    // directly due to client/server constraints in this setup.
-    // The actual Firebase update will be triggered from the client component
-    // after this action successfully returns the validated data.
-    // This action's primary role is validation.
-
     return {
         message: "Dados validados com sucesso! O perfil será atualizado.",
+        data: validatedFields.data,
         errors: null,
         success: true,
     }
