@@ -51,6 +51,7 @@ export default function WeightProgressChart() {
             </CardHeader>
             <CardContent className="flex flex-col items-center justify-center h-[250px] text-center">
                 <p className="text-muted-foreground">Registre pelo menos duas medições de peso para ver seu progresso.</p>
+                <p className="text-xs text-muted-foreground mt-1">Você pode registrar seu peso na página de Perfil.</p>
             </CardContent>
         </Card>
     );
