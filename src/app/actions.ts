@@ -41,9 +41,14 @@ export async function getGoalProjection(
   const validatedFields = goalProjectionFormSchema.safeParse(Object.fromEntries(formData.entries()));
 
   if (!validatedFields.success) {
+    const errorDetails = validatedFields.error.flatten().fieldErrors;
+    const errorString = Object.entries(errorDetails)
+      .map(([fieldName, errors]) => `${fieldName}: ${errors.join(', ')}`)
+      .join('; ');
+
     return {
-      message: "Por favor, corrija os erros no formulário.",
-      errors: validatedFields.error.flatten().fieldErrors,
+      message: `Erros de validação: ${errorString}`,
+      errors: errorDetails,
     };
   }
 
