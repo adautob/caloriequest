@@ -1,43 +1,58 @@
 'use client';
 
-import { useActionState, useEffect, useMemo, useState, useRef } from 'react';
-import { useFormStatus } from 'react-dom';
+import { useEffect, useMemo, useState, useRef, useTransition } from 'react';
+import { useFormStatus, useFormState } from 'react-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Loader2, Save, Wand2, Check, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useDoc, setDocumentNonBlocking, addDocumentNonBlocking, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection, serverTimestamp } from 'firebase/firestore';
-import { updateProfile, UpdateProfileState, getGoalProjection } from '@/app/actions';
+import { updateProfile, getGoalProjection } from '@/app/actions';
 import type { UserProfile, UserAchievement } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
 
-const initialProfileState: UpdateProfileState = {
-    message: "",
-    data: null,
-    errors: null,
-    success: false,
-};
+const profileFormSchema = z.object({
+  name: z.string().min(2, { message: "O nome deve ter pelo menos 2 caracteres." }),
+  currentWeight: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.coerce.number({invalid_type_error: "Peso inválido"}).optional()
+  ),
+  height: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.coerce.number({invalid_type_error: "Altura inválida"}).optional()
+  ),
+  weightGoal: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.coerce.number({invalid_type_error: "Meta de peso inválida"}).optional()
+  ),
+  age: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.coerce.number({invalid_type_error: "Idade inválida"}).optional()
+  ),
+  gender: z.string().optional(),
+  activityLevel: z.string().optional(),
+  dietaryPreferences: z.string().optional(),
+  dailyCalorieGoal: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.coerce.number({invalid_type_error: "Meta de calorias inválida"}).optional()
+  ),
+});
+
 
 const initialProjectionState = {
   message: null,
   data: null,
   errors: null,
 };
-
-function SubmitButton() {  
-  const { pending } = useFormStatus();
-  return (
-    <Button type="submit" disabled={pending} variant="secondary">
-      {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-      Salvar Alterações
-    </Button>
-  );
-}
 
 function ProjectionSubmitButton() {
   const { pending } = useFormStatus();
@@ -70,9 +85,9 @@ export default function ProfileForm() {
     const { user } = useUser();
     const firestore = useFirestore();
     const weightFormRef = useRef<HTMLFormElement>(null);
+    const [isPending, startTransition] = useTransition();
     
-    const [profileState, profileAction] = useActionState(updateProfile, initialProfileState);
-    const [projectionState, projectionAction] = useActionState(getGoalProjection, initialProjectionState);
+    const [projectionState, projectionAction] = useFormState(getGoalProjection, initialProjectionState);
 
     const userProfileRef = useMemoFirebase(() => {
         if (!user || !firestore) return null;
@@ -88,77 +103,94 @@ export default function ProfileForm() {
 
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
-    const [formData, setFormData] = useState({
-      name: '',
-      currentWeight: '',
-      height: '',
-      weightGoal: '',
-      dailyCalorieGoal: '',
-      age: '',
-      gender: '',
-      activityLevel: '',
-      dietaryPreferences: '',
+    const form = useForm<z.infer<typeof profileFormSchema>>({
+      resolver: zodResolver(profileFormSchema),
+      defaultValues: {
+        name: '',
+        currentWeight: undefined,
+        height: undefined,
+        weightGoal: undefined,
+        dailyCalorieGoal: undefined,
+        age: undefined,
+        gender: '',
+        activityLevel: '',
+        dietaryPreferences: '',
+      },
     });
-    
+
+    const currentWeight = form.watch('currentWeight');
+    const height = form.watch('height');
+    const dailyCalorieGoal = form.watch('dailyCalorieGoal');
+
     const [newWeight, setNewWeight] = useState<string>('');
     const [isEditingGoal, setIsEditingGoal] = useState(false);
     
-    const bmi = useMemo(() => calculateBmi(Number(formData.currentWeight), Number(formData.height)), [formData.currentWeight, formData.height]);
+    const bmi = useMemo(() => calculateBmi(Number(currentWeight), Number(height)), [currentWeight, height]);
     const bmiCategory = getBmiCategory(bmi);
 
     useEffect(() => {
         if (userProfile) {
-            setFormData({
+            form.reset({
                 name: userProfile.name || user?.displayName || '',
-                currentWeight: userProfile.currentWeight?.toString() || '',
-                height: userProfile.height?.toString() || '',
-                weightGoal: userProfile.weightGoal?.toString() || '',
-                dailyCalorieGoal: userProfile.dailyCalorieGoal?.toString() || '',
-                age: userProfile.age?.toString() || '',
+                currentWeight: userProfile.currentWeight,
+                height: userProfile.height,
+                weightGoal: userProfile.weightGoal,
+                dailyCalorieGoal: userProfile.dailyCalorieGoal,
+                age: userProfile.age,
                 gender: userProfile.gender || '',
                 activityLevel: userProfile.activityLevel || '',
                 dietaryPreferences: userProfile.dietaryPreferences || '',
             });
         }
-    }, [userProfile, user]);
+    }, [userProfile, user, form]);
 
-     useEffect(() => {
-        if (profileState.success && profileState.data && userProfileRef) {
-            toast({
-                title: "Sucesso!",
-                description: "Seu perfil foi atualizado.",
-            });
+    async function onSubmit(values: z.infer<typeof profileFormSchema>) {
+      startTransition(async () => {
+        const result = await updateProfile(values);
+        if (result.success && userProfileRef) {
+          toast({
+            title: "Sucesso!",
+            description: "Seu perfil foi atualizado.",
+          });
+          const profileUpdate: Record<string, any> = {};
 
-            const profileUpdate = profileState.data;
-            // Only save non-empty data
-            if (Object.keys(profileUpdate).length > 0) {
-              setDocumentNonBlocking(userProfileRef, profileUpdate, { merge: true });
+          // Build the object to save, ensuring empty strings for optional text fields are saved correctly
+          Object.keys(values).forEach(keyStr => {
+            const key = keyStr as keyof typeof values;
+            const value = values[key];
+            if (value !== undefined) { // Check for undefined to allow saving 0 or empty strings
+                profileUpdate[key] = value;
             }
+          });
 
 
-            if(userAchievementsRef) {
-                const hasFirstLogAchievement = userAchievements?.some(ach => ach.achievementId === 'first-log');
-                if (!hasFirstLogAchievement) {
-                     addDocumentNonBlocking(userAchievementsRef, {
-                        achievementId: 'first-log',
-                        dateEarned: serverTimestamp(),
-                    });
-                    toast({
-                        title: "Conquista Desbloqueada!",
-                        description: "Primeiro Registro: Você atualizou seu perfil pela primeira vez.",
-                        className: "bg-accent text-accent-foreground border-accent"
-                    });
-                }
+          if (Object.keys(profileUpdate).length > 0) {
+            setDocumentNonBlocking(userProfileRef, profileUpdate, { merge: true });
+          }
+
+          if (userAchievementsRef) {
+            const hasFirstLogAchievement = userAchievements?.some(ach => ach.achievementId === 'first-log');
+            if (!hasFirstLogAchievement) {
+              addDocumentNonBlocking(userAchievementsRef, {
+                achievementId: 'first-log',
+                dateEarned: serverTimestamp(),
+              });
+              toast({
+                title: "Conquista Desbloqueada!",
+                description: "Primeiro Registro: Você atualizou seu perfil pela primeira vez.",
+                className: "bg-accent text-accent-foreground border-accent"
+              });
             }
-
-        } else if (profileState.message && profileState.errors) {
+          }
+        } else if (result.errors) {
             toast({
                 title: "Erro ao salvar",
-                description: profileState.message,
+                description: "Por favor, corrija os erros no formulário.",
                 variant: "destructive",
             });
         }
-    }, [profileState, toast, userProfileRef, userAchievementsRef, userAchievements]);
+      });
+    }
 
     useEffect(() => {
         if (projectionState.message && (projectionState.errors || (!projectionState.data && !projectionState.errors))) {
@@ -169,7 +201,7 @@ export default function ProfileForm() {
             });
         }
         if (projectionState.data?.recommendedDailyCalories) {
-            setFormData(prev => ({...prev, dailyCalorieGoal: Math.round(projectionState.data!.recommendedDailyCalories).toString()}));
+            form.setValue('dailyCalorieGoal', Math.round(projectionState.data.recommendedDailyCalories));
             
             if(userAchievementsRef) {
                 const hasAiGeniusAchievement = userAchievements?.some(ach => ach.achievementId === 'ai-genius');
@@ -186,7 +218,7 @@ export default function ProfileForm() {
                 }
             }
         }
-    }, [projectionState, toast, userAchievementsRef, userAchievements]);
+    }, [projectionState, toast, userAchievementsRef, userAchievements, form]);
 
     const handleAddWeightMeasurement = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -239,13 +271,13 @@ export default function ProfileForm() {
         if (!userProfileRef) return;
         setDocumentNonBlocking(userProfileRef, { dailyCalorieGoal: newGoal }, { merge: true });
         toast({
-        title: "Meta Atualizada!",
-        description: `Sua nova meta diária de calorias é ${newGoal} kcal.`,
+          title: "Meta Atualizada!",
+          description: `Sua nova meta diária de calorias é ${newGoal} kcal.`,
         });
     }
 
     const handleSaveCustomGoal = () => {
-        const newGoal = Number(formData.dailyCalorieGoal);
+        const newGoal = Number(dailyCalorieGoal);
         if (isNaN(newGoal) || newGoal <= 0) {
         toast({ title: "Valor inválido", description: "Por favor, insira uma meta de calorias válida.", variant: "destructive" });
         return;
@@ -253,15 +285,6 @@ export default function ProfileForm() {
         handleAcceptGoal(newGoal);
         setIsEditingGoal(false);
     }
-
-    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
-
-    const handleSelectChange = (name: string, value: string) => {
-        setFormData(prev => ({ ...prev, [name]: value }));
-    };
     
     if (isProfileLoading) {
         return (
@@ -298,8 +321,9 @@ export default function ProfileForm() {
 
     return (
         <div className="space-y-6">
-            <Card>
-              <form action={profileAction}>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)}>
+              <Card>
                     <CardHeader>
                         <CardTitle className="font-headline">Meu Perfil</CardTitle>
                         <CardDescription>
@@ -307,23 +331,47 @@ export default function ProfileForm() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        <div className="space-y-2">
-                            <Label htmlFor="name">Nome</Label>
-                            <Input id="name" name="name" value={formData.name} onChange={handleInputChange} required/>
-                            {profileState.errors?.name && <p className="text-destructive text-sm mt-1">{profileState.errors.name[0]}</p>}
-                        </div>
+                        <FormField
+                          control={form.control}
+                          name="name"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Nome</FormLabel>
+                              <FormControl>
+                                <Input placeholder="Seu nome" {...field} />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="currentWeight">Peso Atual (kg)</Label>
-                                <Input id="currentWeight" name="currentWeight" type="number" step="0.1" value={formData.currentWeight} onChange={handleInputChange} />
-                                {profileState.errors?.currentWeight && <p className="text-destructive text-sm mt-1">{profileState.errors.currentWeight[0]}</p>}
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="height">Altura (cm)</Label>
-                                <Input id="height" name="height" type="number" value={formData.height} onChange={handleInputChange} />
-                                 {profileState.errors?.height && <p className="text-destructive text-sm mt-1">{profileState.errors.height[0]}</p>}
-                            </div>
+                            <FormField
+                              control={form.control}
+                              name="currentWeight"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Peso Atual (kg)</FormLabel>
+                                  <FormControl>
+                                    <Input type="number" step="0.1" placeholder="85.5" {...field} value={field.value ?? ''} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                             <FormField
+                              control={form.control}
+                              name="height"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Altura (cm)</FormLabel>
+                                  <FormControl>
+                                    <Input type="number" placeholder="175" {...field} value={field.value ?? ''} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
                             <div className="space-y-2">
                                 <Label>Seu IMC</Label>
                                 <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted px-3 py-2 text-sm">
@@ -336,70 +384,130 @@ export default function ProfileForm() {
                             </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="weightGoal">Meta de Peso (kg)</Label>
-                                <Input id="weightGoal" name="weightGoal" type="number" step="0.1" value={formData.weightGoal} onChange={handleInputChange} />
-                                {profileState.errors?.weightGoal && <p className="text-destructive text-sm mt-1">{profileState.errors.weightGoal[0]}</p>}
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="dailyCalorieGoal">Meta Diária de Calorias (kcal)</Label>
-                                <Input id="dailyCalorieGoal" name="dailyCalorieGoal" type="number" step="10" value={formData.dailyCalorieGoal} onChange={handleInputChange} />
-                            </div>
+                            <FormField
+                              control={form.control}
+                              name="weightGoal"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Meta de Peso (kg)</FormLabel>
+                                  <FormControl>
+                                    <Input type="number" step="0.1" placeholder="75" {...field} value={field.value ?? ''} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                            <FormField
+                              control={form.control}
+                              name="dailyCalorieGoal"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Meta Diária de Calorias (kcal)</FormLabel>
+                                  <FormControl>
+                                    <Input type="number" step="10" placeholder="2200" {...field} value={field.value ?? ''} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
                         </div>
 
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="age">Idade</Label>
-                                <Input id="age" name="age" type="number" value={formData.age} onChange={handleInputChange} />
-                                {profileState.errors?.age && <p className="text-destructive text-sm mt-1">{profileState.errors.age[0]}</p>}
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="gender">Gênero</Label>
-                                <Select name="gender" value={formData.gender} onValueChange={(value) => handleSelectChange('gender', value)}>
-                                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="male">Masculino</SelectItem>
-                                    <SelectItem value="female">Feminino</SelectItem>
-                                    <SelectItem value="other">Outro</SelectItem>
-                                </SelectContent>
-                                </Select>
-                            </div>
+                            <FormField
+                              control={form.control}
+                              name="age"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Idade</FormLabel>
+                                  <FormControl>
+                                    <Input type="number" placeholder="30" {...field} value={field.value ?? ''} />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                             <FormField
+                              control={form.control}
+                              name="gender"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Gênero</FormLabel>
+                                  <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                                    <FormControl>
+                                      <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      <SelectItem value="male">Masculino</SelectItem>
+                                      <SelectItem value="female">Feminino</SelectItem>
+                                      <SelectItem value="other">Outro</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
                         </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="activityLevel">Nível de Atividade</Label>
-                            <Select name="activityLevel" value={formData.activityLevel} onValueChange={(value) => handleSelectChange('activityLevel', value)}>
-                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="sedentary">Sedentário</SelectItem>
-                                <SelectItem value="lightly active">Levemente Ativo</SelectItem>
-                                <SelectItem value="moderately active">Moderadamente Ativo</SelectItem>
-                                <SelectItem value="very active">Muito Ativo</SelectItem>
-                                <SelectItem value="extra active">Extremamente Ativo</SelectItem>
-                            </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="dietaryPreferences">Preferências Alimentares</Label>
-                            <Textarea id="dietaryPreferences" name="dietaryPreferences" placeholder="Ex: Vegetariano, baixo carboidrato, sem glúten..." value={formData.dietaryPreferences} onChange={handleInputChange}/>
-                        </div>
+                         <FormField
+                            control={form.control}
+                            name="activityLevel"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Nível de Atividade</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="sedentary">Sedentário</SelectItem>
+                                        <SelectItem value="lightly active">Levemente Ativo</SelectItem>
+                                        <SelectItem value="moderately active">Moderadamente Ativo</SelectItem>
+                                        <SelectItem value="very active">Muito Ativo</SelectItem>
+                                        <SelectItem value="extra active">Extremamente Ativo</SelectItem>
+                                    </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                       
+                         <FormField
+                            control={form.control}
+                            name="dietaryPreferences"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Preferências Alimentares</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="Ex: Vegetariano, baixo carboidrato, sem glúten..." {...field} />
+                                    </FormControl>
+                                    <FormDescription>
+                                        Isso ajuda a IA a fornecer dicas mais relevantes.
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                     </CardContent>
                      <CardFooter className="flex justify-end p-4 border-t">
-                        <SubmitButton />
+                        <Button type="submit" disabled={isPending} variant="secondary">
+                            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                            Salvar Alterações
+                        </Button>
                     </CardFooter>
-                </form>
-            </Card>
+              </Card>
+            </form>
+          </Form>
 
             <Card>
                 <form action={projectionAction}>
-                    <input type="hidden" name="currentWeight" value={formData.currentWeight} />
-                    <input type="hidden" name="goalWeight" value={formData.goalWeight} />
-                    <input type="hidden" name="height" value={formData.height} />
-                    <input type="hidden" name="age" value={formData.age} />
-                    <input type="hidden" name="gender" value={formData.gender} />
-                    <input type="hidden" name="activityLevel" value={formData.activityLevel} />
-                    <input type="hidden" name="dietaryPreferences" value={formData.dietaryPreferences} />
+                    {/* Pass all form values as hidden inputs for the projection action */}
+                    <input type="hidden" name="currentWeight" value={form.getValues('currentWeight') || ''} />
+                    <input type="hidden" name="height" value={form.getValues('height') || ''} />
+                    <input type="hidden" name="weightGoal" value={form.getValues('weightGoal') || ''} />
+                    <input type="hidden" name="age" value={form.getValues('age') || ''} />
+                    <input type="hidden" name="gender" value={form.getValues('gender') || ''} />
+                    <input type="hidden" name="activityLevel" value={form.getValues('activityLevel') || ''} />
+                    <input type="hidden" name="dietaryPreferences" value={form.getValues('dietaryPreferences') || ''} />
                     
                     <CardHeader>
                         <CardTitle className="font-headline">Projeção de Meta com IA</CardTitle>
@@ -426,8 +534,8 @@ export default function ProfileForm() {
                                     <div className="flex items-center gap-2 mt-1">
                                         <Input 
                                             type="number" 
-                                            value={formData.dailyCalorieGoal}
-                                            onChange={(e) => handleInputChange(e)}
+                                            value={dailyCalorieGoal || ''}
+                                            onChange={(e) => form.setValue('dailyCalorieGoal', e.target.valueAsNumber)}
                                             name="dailyCalorieGoal"
                                             className="max-w-[120px]"
                                         />

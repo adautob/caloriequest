@@ -106,8 +106,8 @@ FormLabel.displayName = "FormLabel"
 const FormControl = React.forwardRef<
   React.ElementRef<typeof Slot>,
   React.ComponentPropsWithoutRef<typeof Slot>
->(({ ...props }, ref) => {
-  const { error, formItemId, formDescriptionId, formMessageId } = useFormField()
+>(({ className, ...props }, ref) => {
+  const { error, formItemId, formDescriptionId, formMessageId } = useFormField();
 
   return (
     <Slot
@@ -119,10 +119,11 @@ const FormControl = React.forwardRef<
           : `${formDescriptionId} ${formMessageId}`
       }
       aria-invalid={!!error}
+      className={cn(error && "border-destructive focus-visible:ring-destructive", className)}
       {...props}
     />
-  )
-})
+  );
+});
 FormControl.displayName = "FormControl"
 
 const FormDescription = React.forwardRef<
