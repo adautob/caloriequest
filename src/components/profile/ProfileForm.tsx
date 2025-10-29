@@ -207,9 +207,15 @@ export default function ProfileForm() {
                                 </div>
                             </div>
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="weightGoal">Meta de Peso (kg)</Label>
-                            <Input id="weightGoal" name="weightGoal" type="number" step="0.1" defaultValue={userProfile?.weightGoal || ''} />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="weightGoal">Meta de Peso (kg)</Label>
+                                <Input id="weightGoal" name="weightGoal" type="number" step="0.1" defaultValue={userProfile?.weightGoal || ''} />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="dailyCalorieGoal">Meta Diária de Calorias (kcal)</Label>
+                                <Input id="dailyCalorieGoal" name="dailyCalorieGoal" type="number" step="10" defaultValue={userProfile?.dailyCalorieGoal || ''} />
+                            </div>
                         </div>
 
                         <h3 className="text-lg font-medium text-foreground pt-4 border-t">Dados para Projeção da IA</h3>

@@ -44,5 +44,6 @@ export type UserProfile = {
     gender?: string;
     activityLevel?: string;
     dietaryPreferences?: string;
+    dailyCalorieGoal?: number;
 }
     

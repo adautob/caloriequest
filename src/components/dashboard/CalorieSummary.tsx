@@ -2,18 +2,26 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useEffect, useState } from "react";
-import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where, Timestamp } from "firebase/firestore";
-import type { Meal } from "@/lib/types";
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase";
+import { collection, query, where, Timestamp, doc } from "firebase/firestore";
+import type { Meal, UserProfile } from "@/lib/types";
 import { Skeleton } from "../ui/skeleton";
 
-const CALORIE_GOAL = 2200;
+const DEFAULT_CALORIE_GOAL = 2200;
 
 export default function CalorieSummary() {
   const { user } = useUser();
   const firestore = useFirestore();
   const [totalCalories, setTotalCalories] = useState(0);
   const [progress, setProgress] = useState(0);
+  
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, `users/${user.uid}`);
+  }, [user, firestore]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
+
+  const calorieGoal = userProfile?.dailyCalorieGoal || DEFAULT_CALORIE_GOAL;
 
   const mealsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -27,17 +35,17 @@ export default function CalorieSummary() {
     );
   }, [user, firestore]);
 
-  const { data: meals, isLoading } = useCollection<Meal>(mealsQuery);
+  const { data: meals, isLoading: areMealsLoading } = useCollection<Meal>(mealsQuery);
 
   useEffect(() => {
     if (meals) {
       const calories = meals.reduce((sum, meal) => sum + meal.calories, 0);
       setTotalCalories(calories);
-      setProgress((calories / CALORIE_GOAL) * 100);
+      setProgress((calories / calorieGoal) * 100);
     }
-  }, [meals]);
+  }, [meals, calorieGoal]);
 
-  if (isLoading) {
+  if (areMealsLoading || isProfileLoading) {
     return (
        <Card className="lg:col-span-2 shadow-sm">
         <CardHeader className="pb-2">
@@ -57,12 +65,12 @@ export default function CalorieSummary() {
       <CardHeader className="pb-2">
         <CardDescription className="font-headline">Calorias de Hoje</CardDescription>
         <CardTitle className="text-4xl font-headline">
-          {totalCalories.toLocaleString()} / <span className="text-2xl text-muted-foreground">{CALORIE_GOAL.toLocaleString()} kcal</span>
+          {totalCalories.toLocaleString()} / <span className="text-2xl text-muted-foreground">{calorieGoal.toLocaleString()} kcal</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <Progress value={progress} aria-label={`${progress.toFixed(0)}% da meta de calorias`} className="h-3 bg-primary/20 [&>div]:bg-accent" />
-        <p className="text-xs text-muted-foreground mt-2">{Math.max(0, CALORIE_GOAL - totalCalories).toLocaleString()} calorias restantes</p>
+        <p className="text-xs text-muted-foreground mt-2">{Math.max(0, calorieGoal - totalCalories).toLocaleString()} calorias restantes</p>
       </CardContent>
     </Card>
   );

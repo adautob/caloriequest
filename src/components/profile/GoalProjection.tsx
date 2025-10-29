@@ -7,10 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { getGoalProjection } from '@/app/actions';
-import { Loader2, Wand2 } from 'lucide-react';
+import { Check, Edit, Loader2, Wand2 } from 'lucide-react';
 import { useEffect, useActionState, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useDoc, useFirestore, useUser, useMemoFirebase, setDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import type { UserProfile } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
@@ -45,6 +45,8 @@ export default function GoalProjection() {
   const { data: userProfile, isLoading } = useDoc<UserProfile>(userProfileRef);
   
   const [formKey, setFormKey] = useState(Date.now());
+  const [isEditingGoal, setIsEditingGoal] = useState(false);
+  const [customGoal, setCustomGoal] = useState<number | string>('');
 
   useEffect(() => {
     if (state.message && (state.errors || (!state.data && !state.errors))) {
@@ -54,6 +56,9 @@ export default function GoalProjection() {
         variant: "destructive",
       });
     }
+    if (state.data?.recommendedDailyCalories) {
+      setCustomGoal(Math.round(state.data.recommendedDailyCalories));
+    }
   }, [state, toast]);
   
   useEffect(() => {
@@ -61,6 +66,25 @@ export default function GoalProjection() {
       setFormKey(Date.now());
     }
   }, [userProfile]);
+
+  const handleAcceptGoal = (newGoal: number) => {
+    if (!userProfileRef) return;
+    setDocumentNonBlocking(userProfileRef, { dailyCalorieGoal: newGoal }, { merge: true });
+    toast({
+      title: "Meta Atualizada!",
+      description: `Sua nova meta diária de calorias é ${newGoal} kcal.`,
+    });
+  }
+
+  const handleSaveCustomGoal = () => {
+    const newGoal = Number(customGoal);
+    if (isNaN(newGoal) || newGoal <= 0) {
+       toast({ title: "Valor inválido", description: "Por favor, insira uma meta de calorias válida.", variant: "destructive" });
+      return;
+    }
+    handleAcceptGoal(newGoal);
+    setIsEditingGoal(false);
+  }
 
   if (isLoading) {
     return (
@@ -153,16 +177,47 @@ export default function GoalProjection() {
         <CardFooter className="flex-col items-start gap-4 bg-muted/30 pt-4">
           <SubmitButton />
           {state.data && (
-            <div className="mt-4 p-4 bg-primary/10 rounded-lg border border-primary/20 w-full space-y-3 animate-in fade-in-50 duration-500">
-              <h3 className="font-headline text-lg font-semibold text-primary-foreground/90">Seu Plano ✨</h3>
-              <p>
-                Para atingir sua meta no tempo desejado, você precisará de um déficit calórico semanal de aproximadamente <span className="font-bold text-accent">{Math.round(state.data.requiredWeeklyDeficit)} calorias</span>.
+            <div className="mt-4 p-4 bg-primary/10 rounded-lg border border-primary/20 w-full space-y-4 animate-in fade-in-50 duration-500">
+              <h3 className="font-headline text-lg font-semibold text-primary-foreground/90">Plano Sugerido pela IA ✨</h3>
+              
+              <div className="bg-background/50 rounded-md p-3">
+                <Label>Meta de Calorias Diária</Label>
+                {isEditingGoal ? (
+                    <div className="flex items-center gap-2 mt-1">
+                        <Input 
+                            type="number" 
+                            value={customGoal} 
+                            onChange={(e) => setCustomGoal(e.target.value)} 
+                            className="max-w-[120px]"
+                        />
+                        <Button size="sm" onClick={handleSaveCustomGoal}><Check className="mr-2"/>Salvar</Button>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-2xl font-bold text-accent">{Math.round(state.data.recommendedDailyCalories)} <span className="text-sm font-normal text-muted-foreground">kcal</span></p>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsEditingGoal(true)}>
+                          <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
+                )}
+                 <div className="flex gap-2 mt-3">
+                    <Button 
+                        size="sm" 
+                        onClick={() => handleAcceptGoal(Math.round(state.data!.recommendedDailyCalories))}
+                        disabled={isEditingGoal}
+                        >
+                        <Check className="mr-2"/> Aceitar Meta
+                    </Button>
+                </div>
+              </div>
+
+               <div className="pt-2">
+                 <h4 className="font-semibold pt-2">Dicas Personalizadas:</h4>
+                 <p className="text-sm whitespace-pre-wrap">{state.data.personalizedTips}</p>
+               </div>
+              <p className="text-xs text-muted-foreground pt-2">
+                Isso se baseia em um déficit diário de <span className="font-semibold">{Math.round(state.data.requiredWeeklyDeficit / 7)} calorias</span>.
               </p>
-               <p className="text-sm text-muted-foreground">
-                Isso equivale a um déficit diário de <span className="font-semibold">{Math.round(state.data.requiredWeeklyDeficit / 7)} calorias</span>.
-              </p>
-              <h4 className="font-semibold pt-2">Dicas Personalizadas:</h4>
-              <p className="text-sm whitespace-pre-wrap">{state.data.personalizedTips}</p>
             </div>
           )}
         </CardFooter>

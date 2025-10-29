@@ -26,6 +26,7 @@ export type ProjectWeightLossTimelineInput = z.infer<typeof ProjectWeightLossTim
 
 const ProjectWeightLossTimelineOutputSchema = z.object({
   requiredWeeklyDeficit: z.number().describe('The required weekly calorie deficit to reach the goal in the specified timeline.'),
+  recommendedDailyCalories: z.number().describe('The recommended daily calorie intake to achieve the goal.'),
   personalizedTips: z.string().describe('Personalized tips for the user to help them reach their goal, in Brazilian Portuguese, summarized in max 5 lines.'),
 });
 export type ProjectWeightLossTimelineOutput = z.infer<typeof ProjectWeightLossTimelineOutputSchema>;
@@ -40,7 +41,7 @@ const projectWeightLossTimelinePrompt = ai.definePrompt({
   name: 'projectWeightLossTimelinePrompt',
   input: {schema: ProjectWeightLossTimelineInputSchema},
   output: {schema: ProjectWeightLossTimelineOutputSchema},
-  prompt: `Você é um coach especialista em emagrecimento. Você irá calcular o déficit calórico semanal necessário para que um usuário atinja sua meta de peso em um número especificado de semanas e fornecerá dicas personalizadas.
+  prompt: `Você é um coach especialista em emagrecimento. Você irá calcular o déficit calórico semanal necessário e a ingestão diária de calorias recomendada para que um usuário atinja sua meta de peso em um número especificado de semanas, e fornecerá dicas personalizadas.
 
   Aqui estão as informações sobre o usuário:
   - Peso atual: {{currentWeight}} kg
@@ -53,13 +54,32 @@ const projectWeightLossTimelinePrompt = ai.definePrompt({
   - Gênero: {{gender}}
   - Altura: {{height}} cm
 
-  Com base nessas informações, calcule o déficit calórico semanal necessário para atingir a meta de peso no prazo especificado. Assuma que 1 kg de gordura equivale a aproximadamente 7700 calorias. O peso total a perder é (peso atual - meta de peso). O déficit calórico total necessário é (peso total a perder * 7700). O déficit semanal necessário é (déficit calórico total / goalTimelineWeeks).
+  **Cálculos:**
+  1.  **Taxa Metabólica Basal (TMB)**: Use a equação de Mifflin-St Jeor.
+      - Para homens: TMB = 10 * peso (kg) + 6.25 * altura (cm) - 5 * idade (anos) + 5
+      - Para mulheres: TMB = 10 * peso (kg) + 6.25 * altura (cm) - 5 * idade (anos) - 161
+  2.  **Gasto Energético Diário Total (GET)**: Multiplique a TMB pelo fator de atividade.
+      - Sedentário: 1.2
+      - Levemente ativo: 1.375
+      - Moderadamente ativo: 1.55
+      - Muito ativo: 1.725
+      - Extremamente ativo: 1.9
+  3.  **Déficit Semanal Necessário**: Calcule o déficit calórico semanal para atingir a meta.
+      - Assuma que 1 kg de gordura equivale a 7700 calorias.
+      - Déficit total = (peso atual - meta de peso) * 7700
+      - Déficit semanal = Déficit total / goalTimelineWeeks
+  4.  **Ingestão Diária Recomendada**: Calcule a meta de calorias diárias.
+      - Déficit diário = Déficit semanal / 7
+      - Ingestão diária recomendada = GET - Déficit diário
 
-  Além disso, forneça dicas personalizadas para o usuário o ajudar a atingir seu objetivo, levando em consideração seu nível de atividade e preferências alimentares. As dicas devem ser encorajadoras, práticas, **resumidas em no máximo 5 linhas** e **obrigatoriamente em português do Brasil**.
+  **Saída:**
+  - Calcule o \`requiredWeeklyDeficit\` e o \`recommendedDailyCalories\`.
+  - Forneça dicas personalizadas em **português do Brasil**, resumidas em no máximo 5 linhas.
 
   Sua resposta deve estar no seguinte formato JSON:
   {
     "requiredWeeklyDeficit": <number>,
+    "recommendedDailyCalories": <number>,
     "personalizedTips": "<string em português do Brasil e resumida>"
   }`,
 });

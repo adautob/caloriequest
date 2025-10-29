@@ -26,6 +26,7 @@ type GoalProjectionState = {
   data?: {
     requiredWeeklyDeficit: number;
     personalizedTips: string;
+    recommendedDailyCalories: number;
   } | null;
   errors?: {
     [key: string]: string[] | undefined;
@@ -127,6 +128,7 @@ const profileFormSchema = z.object({
   gender: z.string().optional(),
   activityLevel: z.string().optional(),
   dietaryPreferences: z.string().optional(),
+  dailyCalorieGoal: z.coerce.number().optional().or(z.literal('')),
 });
 
 
@@ -157,7 +159,7 @@ export async function updateProfile(
      const dataToSave: Record<string, any> = {};
      for (const [key, value] of Object.entries(validatedFields.data)) {
          if (value !== '' && value !== undefined && value !== null) {
-              if (['currentWeight', 'height', 'weightGoal', 'age'].includes(key)) {
+              if (['currentWeight', 'height', 'weightGoal', 'age', 'dailyCalorieGoal'].includes(key)) {
                 dataToSave[key] = Number(value);
               } else {
                 dataToSave[key] = value;
