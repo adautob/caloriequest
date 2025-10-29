@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Save, Wand2, Check, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useDoc, setDocumentNonBlocking, addDocumentNonBlocking, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection, serverTimestamp, query, where, getDocs, writeBatch } from 'firebase/firestore';
+import { doc, collection, serverTimestamp } from 'firebase/firestore';
 import { updateProfile, UpdateProfileState, getGoalProjection } from '@/app/actions';
 import type { UserProfile, UserAchievement } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
@@ -122,6 +122,22 @@ export default function ProfileForm() {
             const profileUpdate = profileState.data;
             setDocumentNonBlocking(userProfileRef, profileUpdate, { merge: true });
 
+            // Check for 'first-log' achievement on first successful profile save.
+            if(userAchievementsRef) {
+                const hasFirstLogAchievement = userAchievements?.some(ach => ach.achievementId === 'first-log');
+                if (!hasFirstLogAchievement) {
+                     addDocumentNonBlocking(userAchievementsRef, {
+                        achievementId: 'first-log',
+                        dateEarned: serverTimestamp(),
+                    });
+                    toast({
+                        title: "Conquista Desbloqueada!",
+                        description: "Primeiro Registro: Você atualizou seu perfil pela primeira vez.",
+                        className: "bg-accent text-accent-foreground border-accent"
+                    });
+                }
+            }
+
         } else if (profileState.message && profileState.errors) {
             toast({
                 title: "Erro ao salvar",
@@ -129,7 +145,7 @@ export default function ProfileForm() {
                 variant: "destructive",
             });
         }
-    }, [profileState, toast, userProfileRef]);
+    }, [profileState, toast, userProfileRef, userAchievementsRef, userAchievements]);
 
     useEffect(() => {
         if (projectionState.message && (projectionState.errors || (!projectionState.data && !projectionState.errors))) {
@@ -182,6 +198,23 @@ export default function ProfileForm() {
         if(userProfileRef){
             setDocumentNonBlocking(userProfileRef, { currentWeight: weightValue }, { merge: true });
         }
+        
+        // Check for 'weight-loss-milestone' achievement.
+        if (userAchievementsRef && userProfile?.weightGoal) {
+            const hasMilestoneAchievement = userAchievements?.some(ach => ach.achievementId === 'weight-loss-milestone');
+            if (!hasMilestoneAchievement && weightValue <= userProfile.weightGoal) {
+                addDocumentNonBlocking(userAchievementsRef, {
+                    achievementId: 'weight-loss-milestone',
+                    dateEarned: serverTimestamp(),
+                });
+                toast({
+                    title: "Conquista Desbloqueada!",
+                    description: "Marco Atingido: Você alcançou sua meta de peso!",
+                    className: "bg-accent text-accent-foreground border-accent"
+                });
+            }
+        }
+
 
         toast({
             title: "Peso Registrado!",

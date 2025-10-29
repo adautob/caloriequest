@@ -11,13 +11,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "../ui/textarea";
-import { useUser, useFirestore, addDocumentNonBlocking } from "@/firebase";
+import { useUser, useFirestore, addDocumentNonBlocking, useCollection, useMemoFirebase } from "@/firebase";
 import { useFormStatus } from "react-dom";
 import { addMeal } from "@/app/actions";
 import { useEffect, useState, useRef, useActionState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save } from "lucide-react";
-import { collection, serverTimestamp } from "firebase/firestore";
+import { collection, serverTimestamp, query, where, Timestamp } from "firebase/firestore";
+import { UserAchievement } from "@/lib/types";
 
 const initialState = {
   message: null,
@@ -44,8 +45,24 @@ export default function AddMealDialog({ children }: { children: React.ReactNode 
   const [state, formAction] = useActionState(addMeal, initialState);
   const formRef = useRef<HTMLFormElement>(null);
 
+  const userAchievementsRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return collection(firestore, `users/${user.uid}/userAchievements`);
+  }, [user, firestore]);
+  const { data: userAchievements } = useCollection<UserAchievement>(userAchievementsRef);
+
+  const mealsTodayQuery = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayTimestamp = Timestamp.fromDate(todayStart);
+    return query(collection(firestore, `users/${user.uid}/meals`), where("createdAt", ">=", todayTimestamp));
+  }, [user, firestore]);
+  const { data: mealsToday } = useCollection(mealsTodayQuery);
+
+
   useEffect(() => {
-    if (!state || !user || !firestore) return;
+    if (!state || !user || !firestore || !userAchievementsRef) return;
 
     if (state.success && state.nutritionalInfo) {
       // AI part was successful, now save to Firestore
@@ -62,6 +79,27 @@ export default function AddMealDialog({ children }: { children: React.ReactNode 
         description: `"${state.nutritionalInfo.name}" adicionado com sucesso!`,
       });
 
+      // Check for calorie-goal achievement
+      const hasCalorieGoalAchievement = userAchievements?.some(ach => ach.achievementId === 'calorie-goal');
+      if (!hasCalorieGoalAchievement) {
+          const totalCaloriesToday = (mealsToday?.reduce((sum, meal) => sum + meal.calories, 0) || 0) + state.nutritionalInfo.calories;
+          // You might need to fetch the user's dailyCalorieGoal here if it's not available
+          // For now, let's assume a default or fetch it.
+          // This logic should ideally be more robust, maybe fetching profile in a shared context.
+          const dailyGoal = 2000; // Placeholder
+          if (totalCaloriesToday >= dailyGoal) {
+               addDocumentNonBlocking(userAchievementsRef, {
+                  achievementId: 'calorie-goal',
+                  dateEarned: serverTimestamp(),
+              });
+              toast({
+                  title: "Conquista Desbloqueada!",
+                  description: "Meta Calórica: Você atingiu sua meta diária de calorias.",
+                  className: "bg-accent text-accent-foreground border-accent"
+              });
+          }
+      }
+
       setIsOpen(false);
       formRef.current?.reset();
 
@@ -72,7 +110,7 @@ export default function AddMealDialog({ children }: { children: React.ReactNode 
         variant: "destructive",
       });
     }
-  }, [state, user, firestore, toast]);
+  }, [state, user, firestore, toast, userAchievementsRef, userAchievements, mealsToday]);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>

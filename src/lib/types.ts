@@ -34,15 +34,14 @@ export type Achievement = {
   unlocked: boolean;
 };
 
-// This type represents the schema in Firestore for an achievement definition
+// This type represents a static achievement definition, now stored locally.
 export type AchievementDefinition = {
-  id: string; // The document ID
+  id: string;
   name: string;
   description: string;
-  // We'll map the ID to a Lucide icon on the client side
 }
 
-// This type represents an achievement earned by a user
+// This type represents an achievement earned by a user, stored in Firestore
 export type UserAchievement = {
   id: string; // The document ID
   achievementId: string;
