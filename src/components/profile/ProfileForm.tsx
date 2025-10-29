@@ -29,7 +29,6 @@ const initialProjectionState = {
   errors: null,
 };
 
-
 function SubmitButton() {  
   const { pending } = useFormStatus();
   return (
@@ -50,7 +49,6 @@ function ProjectionSubmitButton() {
   );
 }
 
-
 function calculateBmi(weight: number | undefined, height: number | undefined): number | null {
     if (!weight || !height || height === 0) return null;
     const heightInMeters = height / 100;
@@ -66,7 +64,6 @@ function getBmiCategory(bmi: number | null): { category: string; color: string }
     if (bmi < 40) return { category: "Obesidade Grau II", color: "text-red-500" };
     return { category: "Obesidade Grau III", color: "text-red-700" };
 }
-
 
 export default function ProfileForm() {
     const { toast } = useToast();
@@ -91,25 +88,39 @@ export default function ProfileForm() {
 
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
-    const [weight, setWeight] = useState<number | undefined>(userProfile?.currentWeight);
-    const [height, setHeight] = useState<number | undefined>(userProfile?.height);
-    const [newWeight, setNewWeight] = useState<string>('');
-
-    const [formKey, setFormKey] = useState(Date.now());
-    const [isEditingGoal, setIsEditingGoal] = useState(false);
-    const [customGoal, setCustomGoal] = useState<number | string>('');
-
-    const bmi = useMemo(() => calculateBmi(weight, height), [weight, height]);
-    const bmiCategory = getBmiCategory(bmi);
+    const [formData, setFormData] = useState({
+      name: '',
+      currentWeight: '',
+      height: '',
+      weightGoal: '',
+      dailyCalorieGoal: '',
+      age: '',
+      gender: '',
+      activityLevel: 'lightly active',
+      dietaryPreferences: '',
+    });
     
+    const [newWeight, setNewWeight] = useState<string>('');
+    const [isEditingGoal, setIsEditingGoal] = useState(false);
+    
+    const bmi = useMemo(() => calculateBmi(Number(formData.currentWeight), Number(formData.height)), [formData.currentWeight, formData.height]);
+    const bmiCategory = getBmiCategory(bmi);
+
     useEffect(() => {
         if (userProfile) {
-            setWeight(userProfile.currentWeight);
-            setHeight(userProfile.height);
-            setCustomGoal(userProfile.dailyCalorieGoal || '');
-            setFormKey(Date.now()); // Force re-render of form with new defaultValues
+            setFormData({
+                name: userProfile.name || user?.displayName || '',
+                currentWeight: userProfile.currentWeight?.toString() || '',
+                height: userProfile.height?.toString() || '',
+                weightGoal: userProfile.weightGoal?.toString() || '',
+                dailyCalorieGoal: userProfile.dailyCalorieGoal?.toString() || '',
+                age: userProfile.age?.toString() || '',
+                gender: userProfile.gender || '',
+                activityLevel: userProfile.activityLevel || 'lightly active',
+                dietaryPreferences: userProfile.dietaryPreferences || '',
+            });
         }
-    }, [userProfile]);
+    }, [userProfile, user]);
 
      useEffect(() => {
         if (profileState.success && profileState.data && userProfileRef) {
@@ -121,7 +132,6 @@ export default function ProfileForm() {
             const profileUpdate = profileState.data;
             setDocumentNonBlocking(userProfileRef, profileUpdate, { merge: true });
 
-            // Check for 'first-log' achievement on first successful profile save.
             if(userAchievementsRef) {
                 const hasFirstLogAchievement = userAchievements?.some(ach => ach.achievementId === 'first-log');
                 if (!hasFirstLogAchievement) {
@@ -155,9 +165,8 @@ export default function ProfileForm() {
             });
         }
         if (projectionState.data?.recommendedDailyCalories) {
-            setCustomGoal(Math.round(projectionState.data.recommendedDailyCalories));
+            setFormData(prev => ({...prev, dailyCalorieGoal: Math.round(projectionState.data!.recommendedDailyCalories).toString()}));
             
-            // Check and award 'ai-genius' achievement
             if(userAchievementsRef) {
                 const hasAiGeniusAchievement = userAchievements?.some(ach => ach.achievementId === 'ai-genius');
                 if (!hasAiGeniusAchievement) {
@@ -198,7 +207,6 @@ export default function ProfileForm() {
             setDocumentNonBlocking(userProfileRef, { currentWeight: weightValue }, { merge: true });
         }
         
-        // Check for 'weight-loss-milestone' achievement.
         if (userAchievementsRef && userProfile?.weightGoal) {
             const hasMilestoneAchievement = userAchievements?.some(ach => ach.achievementId === 'weight-loss-milestone');
             if (!hasMilestoneAchievement && weightValue <= userProfile.weightGoal) {
@@ -213,7 +221,6 @@ export default function ProfileForm() {
                 });
             }
         }
-
 
         toast({
             title: "Peso Registrado!",
@@ -234,7 +241,7 @@ export default function ProfileForm() {
     }
 
     const handleSaveCustomGoal = () => {
-        const newGoal = Number(customGoal);
+        const newGoal = Number(formData.dailyCalorieGoal);
         if (isNaN(newGoal) || newGoal <= 0) {
         toast({ title: "Valor inválido", description: "Por favor, insira uma meta de calorias válida.", variant: "destructive" });
         return;
@@ -242,6 +249,15 @@ export default function ProfileForm() {
         handleAcceptGoal(newGoal);
         setIsEditingGoal(false);
     }
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSelectChange = (name: string, value: string) => {
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
     
     if (isProfileLoading) {
         return (
@@ -279,7 +295,7 @@ export default function ProfileForm() {
     return (
         <div className="space-y-6">
             <Card>
-              <form action={profileAction} key={formKey}>
+              <form action={profileAction}>
                     <CardHeader>
                         <CardTitle className="font-headline">Meu Perfil</CardTitle>
                         <CardDescription>
@@ -289,19 +305,19 @@ export default function ProfileForm() {
                     <CardContent className="space-y-6">
                         <div className="space-y-2">
                             <Label htmlFor="name">Nome</Label>
-                            <Input id="name" name="name" defaultValue={userProfile?.name || user?.displayName || ''} required/>
+                            <Input id="name" name="name" value={formData.name} onChange={handleInputChange} required/>
                             {profileState.errors?.name && <p className="text-destructive text-sm mt-1">{profileState.errors.name[0]}</p>}
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="currentWeight">Peso Atual (kg)</Label>
-                                <Input id="currentWeight" name="currentWeight" type="number" step="0.1" defaultValue={userProfile?.currentWeight || ''} onChange={e => setWeight(Number(e.target.value))} />
+                                <Input id="currentWeight" name="currentWeight" type="number" step="0.1" value={formData.currentWeight} onChange={handleInputChange} />
                                 {profileState.errors?.currentWeight && <p className="text-destructive text-sm mt-1">{profileState.errors.currentWeight[0]}</p>}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="height">Altura (cm)</Label>
-                                <Input id="height" name="height" type="number" defaultValue={userProfile?.height || ''} onChange={e => setHeight(Number(e.target.value))}/>
+                                <Input id="height" name="height" type="number" value={formData.height} onChange={handleInputChange} />
                                  {profileState.errors?.height && <p className="text-destructive text-sm mt-1">{profileState.errors.height[0]}</p>}
                             </div>
                             <div className="space-y-2">
@@ -318,24 +334,24 @@ export default function ProfileForm() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="weightGoal">Meta de Peso (kg)</Label>
-                                <Input id="weightGoal" name="weightGoal" type="number" step="0.1" defaultValue={userProfile?.weightGoal || ''} />
+                                <Input id="weightGoal" name="weightGoal" type="number" step="0.1" value={formData.weightGoal} onChange={handleInputChange} />
                                 {profileState.errors?.weightGoal && <p className="text-destructive text-sm mt-1">{profileState.errors.weightGoal[0]}</p>}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="dailyCalorieGoal">Meta Diária de Calorias (kcal)</Label>
-                                <Input id="dailyCalorieGoal" name="dailyCalorieGoal" type="number" step="10" defaultValue={userProfile?.dailyCalorieGoal || ''} />
+                                <Input id="dailyCalorieGoal" name="dailyCalorieGoal" type="number" step="10" value={formData.dailyCalorieGoal} onChange={handleInputChange} />
                             </div>
                         </div>
 
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="age">Idade</Label>
-                                <Input id="age" name="age" type="number" defaultValue={userProfile?.age || ''} />
+                                <Input id="age" name="age" type="number" value={formData.age} onChange={handleInputChange} />
                                 {profileState.errors?.age && <p className="text-destructive text-sm mt-1">{profileState.errors.age[0]}</p>}
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="gender">Gênero</Label>
-                                <Select name="gender" defaultValue={userProfile?.gender || undefined}>
+                                <Select name="gender" value={formData.gender} onValueChange={(value) => handleSelectChange('gender', value)}>
                                 <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="male">Masculino</SelectItem>
@@ -348,7 +364,7 @@ export default function ProfileForm() {
 
                         <div className="space-y-2">
                             <Label htmlFor="activityLevel">Nível de Atividade</Label>
-                            <Select name="activityLevel" defaultValue={userProfile?.activityLevel || "lightly active"}>
+                            <Select name="activityLevel" value={formData.activityLevel} onValueChange={(value) => handleSelectChange('activityLevel', value)}>
                             <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="sedentary">Sedentário</SelectItem>
@@ -362,84 +378,89 @@ export default function ProfileForm() {
 
                         <div className="space-y-2">
                             <Label htmlFor="dietaryPreferences">Preferências Alimentares</Label>
-                            <Textarea id="dietaryPreferences" name="dietaryPreferences" placeholder="Ex: Vegetariano, baixo carboidrato, sem glúten..." defaultValue={userProfile?.dietaryPreferences || ''}/>
+                            <Textarea id="dietaryPreferences" name="dietaryPreferences" placeholder="Ex: Vegetariano, baixo carboidrato, sem glúten..." value={formData.dietaryPreferences} onChange={handleInputChange}/>
                         </div>
                     </CardContent>
-                     <CardFooter className="flex justify-end p-4">
+                     <CardFooter className="flex justify-end p-4 border-t">
                         <SubmitButton />
                     </CardFooter>
                 </form>
+                </Card>
 
-                 <form action={projectionAction}>
-                    {/* Hidden fields to pass data to the projection action */}
-                    <input type="hidden" name="name" value={userProfile?.name || user?.displayName || ''} />
-                    <input type="hidden" name="currentWeight" value={weight || ''} />
-                    <input type="hidden" name="height" value={height || ''} />
-                    {/* We need all fields from the main form to be available here */}
-                    <input type="hidden" name="weightGoal" value={formKey ? (document.getElementById('weightGoal') as HTMLInputElement)?.value : userProfile?.weightGoal || ''} />
-                    <input type="hidden" name="age" value={formKey ? (document.getElementById('age') as HTMLInputElement)?.value : userProfile?.age || ''} />
-                    <input type="hidden" name="gender" value={formKey ? (document.querySelector('[name="gender"]') as HTMLSelectElement)?.value : userProfile?.gender || ''} />
-                    <input type="hidden" name="activityLevel" value={formKey ? (document.querySelector('[name="activityLevel"]') as HTMLSelectElement)?.value : userProfile?.activityLevel || ''} />
-                    <input type="hidden" name="dietaryPreferences" value={formKey ? (document.getElementById('dietaryPreferences') as HTMLTextAreaElement)?.value : userProfile?.dietaryPreferences || ''} />
-                
-                    <div className="p-4 pt-0">
-                        <div className="space-y-2 pt-4 border-t">
-                            <Label htmlFor="goalTimelineWeeks">Em quanto tempo (semanas) quer atingir a meta?</Label>
-                            <Input id="goalTimelineWeeks" name="goalTimelineWeeks" type="number" defaultValue="12" required />
-                            {projectionState.errors?.goalTimelineWeeks && <p className="text-destructive text-sm mt-1">{projectionState.errors.goalTimelineWeeks[0]}</p>}
-                        </div>
-                    </div>
-                    <CardFooter className="flex-col items-stretch gap-4 bg-muted/30 p-4">
-                        <div className="flex justify-end">
-                            <ProjectionSubmitButton />
-                        </div>
-                        {projectionState.errors?.goalWeight && <p className="text-destructive text-sm mt-1">{projectionState.errors.goalWeight[0]}</p>}
-                        {projectionState.data && (
-                            <div className="mt-4 p-4 bg-primary/10 rounded-lg border border-primary/20 w-full space-y-4 animate-in fade-in-50 duration-500">
-                            <h3 className="font-headline text-lg font-semibold text-primary-foreground/90">Plano Sugerido pela IA ✨</h3>
-                            
-                            <div className="bg-background/50 rounded-md p-3">
-                                <Label>Meta de Calorias Diária</Label>
-                                {isEditingGoal ? (
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <Input 
-                                            type="number" 
-                                            value={customGoal} 
-                                            onChange={(e) => setCustomGoal(e.target.value)} 
-                                            className="max-w-[120px]"
-                                        />
-                                        <Button size="sm" onClick={handleSaveCustomGoal}><Check className="mr-2"/>Salvar</Button>
+                <Card>
+                    <form action={projectionAction}>
+                        <input type="hidden" name="currentWeight" value={formData.currentWeight} />
+                        <input type="hidden" name="height" value={formData.height} />
+                        <input type="hidden" name="weightGoal" value={formData.weightGoal} />
+                        <input type="hidden" name="age" value={formData.age} />
+                        <input type="hidden" name="gender" value={formData.gender} />
+                        <input type="hidden" name="activityLevel" value={formData.activityLevel} />
+                        <input type="hidden" name="dietaryPreferences" value={formData.dietaryPreferences} />
+                        
+                        <CardHeader>
+                            <CardTitle className="font-headline">Projeção de Meta com IA</CardTitle>
+                            <CardDescription>Use a inteligência artificial para criar um plano de calorias e obter dicas para alcançar seu objetivo.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-2">
+                                <Label htmlFor="goalTimelineWeeks">Em quanto tempo (semanas) quer atingir a meta?</Label>
+                                <Input id="goalTimelineWeeks" name="goalTimelineWeeks" type="number" defaultValue="12" required />
+                                {projectionState.errors?.goalTimelineWeeks && <p className="text-destructive text-sm mt-1">{projectionState.errors.goalTimelineWeeks[0]}</p>}
+                                {projectionState.errors?.goalWeight && <p className="text-destructive text-sm mt-1">{projectionState.errors.goalWeight[0]}</p>}
+                            </div>
+                        </CardContent>
+                        <CardFooter className="flex-col items-stretch gap-4">
+                            <div className="flex justify-end">
+                                <ProjectionSubmitButton />
+                            </div>
+                            {projectionState.data && (
+                                <div className="mt-4 p-4 bg-primary/10 rounded-lg border border-primary/20 w-full space-y-4 animate-in fade-in-50 duration-500">
+                                <h3 className="font-headline text-lg font-semibold text-primary-foreground/90">Plano Sugerido pela IA ✨</h3>
+                                
+                                <div className="bg-background/50 rounded-md p-3">
+                                    <Label>Meta de Calorias Diária</Label>
+                                    {isEditingGoal ? (
+                                        <div className="flex items-center gap-2 mt-1">
+                                            <Input 
+                                                type="number" 
+                                                value={formData.dailyCalorieGoal}
+                                                onChange={(e) => handleInputChange(e)}
+                                                name="dailyCalorieGoal"
+                                                className="max-w-[120px]"
+                                            />
+                                            <Button size="icon" className="h-8 w-8" onClick={handleSaveCustomGoal}><Check className="h-4 w-4"/></Button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2 mt-1">
+                                        <p className="text-2xl font-bold text-accent">{Math.round(projectionState.data.recommendedDailyCalories)} <span className="text-sm font-normal text-muted-foreground">kcal</span></p>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsEditingGoal(true)}>
+                                            <Edit className="h-4 w-4" />
+                                        </Button>
+                                        </div>
+                                    )}
+                                    <div className="flex gap-2 mt-3">
+                                        <Button 
+                                            size="sm" 
+                                            onClick={() => handleAcceptGoal(Math.round(projectionState.data!.recommendedDailyCalories))}
+                                            disabled={isEditingGoal}
+                                            type="button"
+                                            >
+                                            <Check className="mr-2 h-4 w-4"/> Aceitar Meta
+                                        </Button>
                                     </div>
-                                ) : (
-                                    <div className="flex items-center gap-2 mt-1">
-                                    <p className="text-2xl font-bold text-accent">{Math.round(projectionState.data.recommendedDailyCalories)} <span className="text-sm font-normal text-muted-foreground">kcal</span></p>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setIsEditingGoal(true)}>
-                                        <Edit className="h-4 w-4" />
-                                    </Button>
-                                    </div>
-                                )}
-                                <div className="flex gap-2 mt-3">
-                                    <Button 
-                                        size="sm" 
-                                        onClick={() => handleAcceptGoal(Math.round(projectionState.data!.recommendedDailyCalories))}
-                                        disabled={isEditingGoal}
-                                        >
-                                        <Check className="mr-2"/> Aceitar Meta
-                                    </Button>
                                 </div>
-                            </div>
 
-                            <div className="pt-2">
-                                <h4 className="font-semibold pt-2">Dicas Personalizadas:</h4>
-                                <p className="text-sm whitespace-pre-wrap">{projectionState.data.personalizedTips}</p>
-                            </div>
-                            <p className="text-xs text-muted-foreground pt-2">
-                                Isso se baseia em um déficit diário de <span className="font-semibold">{Math.round(projectionState.data.requiredWeeklyDeficit / 7)} calorias</span>.
-                            </p>
-                            </div>
-                        )}
-                    </CardFooter>
-                </form>
+                                <div className="pt-2">
+                                    <h4 className="font-semibold pt-2">Dicas Personalizadas:</h4>
+                                    <p className="text-sm whitespace-pre-wrap">{projectionState.data.personalizedTips}</p>
+                                </div>
+                                <p className="text-xs text-muted-foreground pt-2">
+                                    Isso se baseia em um déficit diário de <span className="font-semibold">{Math.round(projectionState.data.requiredWeeklyDeficit / 7)} calorias</span>.
+                                </p>
+                                </div>
+                            )}
+                        </CardFooter>
+                    </form>
             </Card>
 
             <Card>
