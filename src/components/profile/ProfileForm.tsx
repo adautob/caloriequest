@@ -69,14 +69,13 @@ export default function ProfileForm() {
     const bmi = useMemo(() => calculateBmi(weight, height), [weight, height]);
     const bmiCategory = getBmiCategory(bmi);
     
-    // Key to reset form when profile loads
     const [formKey, setFormKey] = useState(Date.now());
     
     useEffect(() => {
         if (userProfile) {
             setWeight(userProfile.currentWeight);
             setHeight(userProfile.height);
-            setFormKey(Date.now()); // Reset form to populate with new defaults
+            setFormKey(Date.now());
         }
     }, [userProfile]);
 
@@ -87,36 +86,33 @@ export default function ProfileForm() {
                 description: state.message,
             });
             const form = formRef.current;
-            if (form) {
-                const data = new FormData(form);
-                const profileData: Record<string, any> = {};
-                
-                // Helper to get number from FormData, returning undefined if empty/NaN
-                const getNumberOrUndefined = (field: string) => {
-                    const value = data.get(field);
+            if (form && userProfileRef) {
+                const formData = new FormData(form);
+                const validatedData = Object.fromEntries(formData.entries());
+
+                const getNumberOrUndefined = (value: any) => {
                     if (value === null || value === '') return undefined;
                     const num = Number(value);
                     return isNaN(num) ? undefined : num;
-                }
+                };
 
-                // Manually build the data object to handle coercion and undefined values
-                profileData.name = data.get('name') as string;
-                profileData.currentWeight = getNumberOrUndefined('currentWeight');
-                profileData.height = getNumberOrUndefined('height');
-                profileData.weightGoal = getNumberOrUndefined('weightGoal');
-                profileData.age = getNumberOrUndefined('age');
-                profileData.gender = data.get('gender') as string;
-                profileData.activityLevel = data.get('activityLevel') as string;
-                profileData.dietaryPreferences = data.get('dietaryPreferences') as string;
-
-                // Filter out undefined values so Firestore doesn't overwrite fields with null
+                const profileUpdate = {
+                    name: validatedData.name,
+                    currentWeight: getNumberOrUndefined(validatedData.currentWeight),
+                    height: getNumberOrUndefined(validatedData.height),
+                    weightGoal: getNumberOrUndefined(validatedData.weightGoal),
+                    age: getNumberOrUndefined(validatedData.age),
+                    gender: validatedData.gender,
+                    activityLevel: validatedData.activityLevel,
+                    dietaryPreferences: validatedData.dietaryPreferences,
+                };
+                
+                // Filter out undefined values to prevent overwriting existing fields with null/undefined
                 const finalProfileData = Object.fromEntries(
-                    Object.entries(profileData).filter(([_, v]) => v !== undefined)
+                    Object.entries(profileUpdate).filter(([, value]) => value !== undefined && value !== '')
                 );
 
-                if (userProfileRef) {
-                    setDocumentNonBlocking(userProfileRef, finalProfileData, { merge: true });
-                }
+                setDocumentNonBlocking(userProfileRef, finalProfileData, { merge: true });
             }
         } else if (state.message && state.errors) {
             toast({
@@ -235,5 +231,3 @@ export default function ProfileForm() {
         </Card>
     );
 }
-
-    
