@@ -125,14 +125,14 @@ export async function addMeal(
 
 const profileFormSchema = z.object({
   name: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
-  currentWeight: z.preprocess(val => val === '' ? undefined : val, z.coerce.number().optional()),
-  height: z.preprocess(val => val === '' ? undefined : val, z.coerce.number().optional()),
-  weightGoal: z.preprocess(val => val === '' ? undefined : val, z.coerce.number().optional()),
-  age: z.preprocess(val => val === '' ? undefined : val, z.coerce.number().optional()),
+  currentWeight: z.preprocess(val => val === '' ? undefined : val, z.coerce.number({invalid_type_error: "Peso inválido"}).optional()),
+  height: z.preprocess(val => val === '' ? undefined : val, z.coerce.number({invalid_type_error: "Altura inválida"}).optional()),
+  weightGoal: z.preprocess(val => val === '' ? undefined : val, z.coerce.number({invalid_type_error: "Meta de peso inválida"}).optional()),
+  age: z.preprocess(val => val === '' ? undefined : val, z.coerce.number({invalid_type_error: "Idade inválida"}).optional()),
   gender: z.string().optional(),
   activityLevel: z.string().optional(),
   dietaryPreferences: z.string().optional(),
-  dailyCalorieGoal: z.preprocess(val => val === '' ? undefined : val, z.coerce.number().optional()),
+  dailyCalorieGoal: z.preprocess(val => val === '' ? undefined : val, z.coerce.number({invalid_type_error: "Meta de calorias inválida"}).optional()),
 });
 
 
