@@ -67,7 +67,7 @@ export default function ProfileForm() {
     const [height, setHeight] = useState<number | undefined>(userProfile?.height);
 
     const bmi = useMemo(() => calculateBmi(weight, height), [weight, height]);
-    const bmiCategory = getBmiMnemonic(bmi);
+    const bmiCategory = getBmiCategory(bmi);
     
     // Add a state for the form key
     const [formKey, setFormKey] = useState(Date.now());
