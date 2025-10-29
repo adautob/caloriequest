@@ -67,14 +67,16 @@ export default function ProfileForm() {
     const [height, setHeight] = useState<number | undefined>(userProfile?.height);
 
     const bmi = useMemo(() => calculateBmi(weight, height), [weight, height]);
-    const bmiCategory = getBmiCategory(bmi);
+    const bmiCategory = getBmiMnemonic(bmi);
     
+    // Add a state for the form key
     const [formKey, setFormKey] = useState(Date.now());
     
     useEffect(() => {
         if (userProfile) {
             setWeight(userProfile.currentWeight);
             setHeight(userProfile.height);
+            // When userProfile data changes, update the form key to force a re-render
             setFormKey(Date.now());
         }
     }, [userProfile]);
@@ -91,8 +93,9 @@ export default function ProfileForm() {
                 const validatedData = Object.fromEntries(formData.entries());
 
                 const getNumberOrUndefined = (value: any) => {
-                    if (value === null || value === '') return undefined;
-                    const num = Number(value);
+                    const strValue = String(value).trim();
+                    if (strValue === null || strValue === '') return undefined;
+                    const num = Number(strValue);
                     return isNaN(num) ? undefined : num;
                 };
 
@@ -107,9 +110,8 @@ export default function ProfileForm() {
                     dietaryPreferences: validatedData.dietaryPreferences,
                 };
                 
-                // Filter out undefined values to prevent overwriting existing fields with null/undefined
                 const finalProfileData = Object.fromEntries(
-                    Object.entries(profileUpdate).filter(([, value]) => value !== undefined && value !== '')
+                    Object.entries(profileUpdate).filter(([, value]) => value !== undefined)
                 );
 
                 setDocumentNonBlocking(userProfileRef, finalProfileData, { merge: true });
