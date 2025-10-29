@@ -7,16 +7,32 @@ import { z } from "zod";
 
 // --- Goal Projection Action ---
 
-// THIS IS THE FOCUSED SCHEMA FOR THE PROJECTION ACTION
 const goalProjectionFormSchema = z.object({
-  currentWeight: z.coerce.number({ required_error: "Peso atual é obrigatório." }).min(30, "Peso deve ser no mínimo 30kg."),
-  goalWeight: z.coerce.number({ required_error: "Meta de peso é obrigatória." }).min(30, "Meta de peso deve ser no mínimo 30kg."),
-  height: z.coerce.number({ required_error: "Altura é obrigatória." }).min(100, "Altura deve ser no mínimo 100cm."),
-  age: z.coerce.number({ required_error: "Idade é obrigatória." }).min(13, "Você deve ter pelo menos 13 anos."),
+  currentWeight: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z.coerce.number({ required_error: "Peso atual é obrigatório." }).min(30, "Peso deve ser no mínimo 30kg.")
+  ),
+  goalWeight: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z.coerce.number({ required_error: "Meta de peso é obrigatória." }).min(30, "Meta de peso deve ser no mínimo 30kg.")
+  ),
+  height: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z.coerce.number({ required_error: "Altura é obrigatória." }).min(100, "Altura deve ser no mínimo 100cm.")
+  ),
+  age: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z.coerce.number({ required_error: "Idade é obrigatória." }).min(13, "Você deve ter pelo menos 13 anos.")
+  ),
   gender: z.string({ required_error: "Gênero é obrigatório." }),
   activityLevel: z.string({ required_error: "Nível de atividade é obrigatório." }),
-  goalTimelineWeeks: z.coerce.number({ required_error: "O tempo para atingir a meta é obrigatório." }).min(1, "O tempo para atingir a meta deve ser de pelo menos 1 semana."),
+  goalTimelineWeeks: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z.coerce.number({ required_error: "O tempo para atingir a meta é obrigatório." }).min(1, "O tempo para atingir a meta deve ser de pelo menos 1 semana.")
+  ),
   dietaryPreferences: z.string().optional(),
+  name: z.string().optional(), // Not used by projection but might be on the form
+  dailyCalorieGoal: z.preprocess((val) => (val === "" || val === null ? undefined : val), z.coerce.number().optional()), // Not used, but prevent validation error
 }).refine(data => data.currentWeight > data.goalWeight, {
   message: "O peso atual deve ser maior que a meta de peso.",
   path: ["goalWeight"],
@@ -39,7 +55,6 @@ export async function getGoalProjection(
   prevState: GoalProjectionState,
   formData: FormData,
 ): Promise<GoalProjectionState> {
-  // Use the focused schema for validation
   const validatedFields = goalProjectionFormSchema.safeParse(Object.fromEntries(formData.entries()));
 
   if (!validatedFields.success) {
@@ -52,6 +67,7 @@ export async function getGoalProjection(
   try {
     const input: ProjectWeightLossTimelineInput = {
       ...validatedFields.data,
+      goalWeight: validatedFields.data.goalWeight, // ensure it's passed correctly
       dietaryPreferences: validatedFields.data.dietaryPreferences || 'Nenhuma'
     };
     const result = await projectWeightLossTimeline(input);
