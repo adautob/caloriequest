@@ -26,7 +26,7 @@ export type ProjectWeightLossTimelineInput = z.infer<typeof ProjectWeightLossTim
 
 const ProjectWeightLossTimelineOutputSchema = z.object({
   requiredWeeklyDeficit: z.number().describe('The required weekly calorie deficit to reach the goal in the specified timeline.'),
-  personalizedTips: z.string().describe('Personalized tips for the user to help them reach their goal.'),
+  personalizedTips: z.string().describe('Personalized tips for the user to help them reach their goal, in Brazilian Portuguese.'),
 });
 export type ProjectWeightLossTimelineOutput = z.infer<typeof ProjectWeightLossTimelineOutputSchema>;
 
@@ -40,27 +40,27 @@ const projectWeightLossTimelinePrompt = ai.definePrompt({
   name: 'projectWeightLossTimelinePrompt',
   input: {schema: ProjectWeightLossTimelineInputSchema},
   output: {schema: ProjectWeightLossTimelineOutputSchema},
-  prompt: `You are an expert weight loss coach. You will calculate the required weekly calorie deficit for a user to reach their weight loss goal in a specified number of weeks and provide personalized tips.
+  prompt: `Você é um coach especialista em emagrecimento. Você irá calcular o déficit calórico semanal necessário para que um usuário atinja sua meta de peso em um número especificado de semanas e fornecerá dicas personalizadas.
 
-  Here is information about the user:
-  - Current weight: {{currentWeight}} kg
-  - Goal weight: {{goalWeight}} kg
-  - Desired timeline: {{goalTimelineWeeks}} weeks
-  {{#if weeklyWeightChange}}- Average weekly weight change: {{weeklyWeightChange}} kg{{/if}}
-  - Activity level: {{activityLevel}}
-  - Dietary preferences: {{dietaryPreferences}}
-  - Age: {{age}} years
-  - Gender: {{gender}}
-  - Height: {{height}} cm
+  Aqui estão as informações sobre o usuário:
+  - Peso atual: {{currentWeight}} kg
+  - Meta de peso: {{goalWeight}} kg
+  - Prazo desejado: {{goalTimelineWeeks}} semanas
+  {{#if weeklyWeightChange}}- Mudança média de peso semanal: {{weeklyWeightChange}} kg{{/if}}
+  - Nível de atividade: {{activityLevel}}
+  - Preferências alimentares: {{dietaryPreferences}}
+  - Idade: {{age}} anos
+  - Gênero: {{gender}}
+  - Altura: {{height}} cm
 
-  Based on this information, calculate the required weekly calorie deficit to reach the goal weight in the specified timeline. Assume that 1 kg of fat is approximately 7700 calories. The total weight to lose is (currentWeight - goalWeight). The total calorie deficit needed is (total weight to lose * 7700). The required weekly deficit is (total calorie deficit / goalTimelineWeeks).
+  Com base nessas informações, calcule o déficit calórico semanal necessário para atingir a meta de peso no prazo especificado. Assuma que 1 kg de gordura equivale a aproximadamente 7700 calorias. O peso total a perder é (peso atual - meta de peso). O déficit calórico total necessário é (peso total a perder * 7700). O déficit semanal necessário é (déficit calórico total / goalTimelineWeeks).
 
-  Also, provide personalized tips for the user to help them reach their goal, taking into account their activity level and dietary preferences. The tips should be encouraging and actionable.
+  Além disso, forneça dicas personalizadas para o usuário o ajudar a atingir seu objetivo, levando em consideração seu nível de atividade e preferências alimentares. As dicas devem ser encorajadoras e práticas, e **obrigatoriamente em português do Brasil**.
 
-  Your response should be in the following format:
+  Sua resposta deve estar no seguinte formato JSON:
   {
     "requiredWeeklyDeficit": <number>,
-    "personalizedTips": <string>
+    "personalizedTips": "<string em português do Brasil>"
   }`,
 });
 
