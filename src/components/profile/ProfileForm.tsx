@@ -389,13 +389,13 @@ export default function ProfileForm() {
 
                 <Card>
                     <form action={projectionAction}>
-                        <input type="hidden" name="currentWeight" value={formData.currentWeight} />
-                        <input type="hidden" name="height" value={formData.height} />
-                        <input type="hidden" name="weightGoal" value={formData.weightGoal} />
-                        <input type="hidden" name="age" value={formData.age} />
-                        <input type="hidden" name="gender" value={formData.gender} />
-                        <input type="hidden" name="activityLevel" value={formData.activityLevel} />
-                        <input type="hidden" name="dietaryPreferences" value={formData.dietaryPreferences} />
+                        <input type="hidden" name="currentWeight" value={formData.currentWeight || ''} />
+                        <input type="hidden" name="height" value={formData.height || ''} />
+                        <input type="hidden" name="weightGoal" value={formData.weightGoal || ''} />
+                        <input type="hidden" name="age" value={formData.age || ''} />
+                        <input type="hidden" name="gender" value={formData.gender || ''} />
+                        <input type="hidden" name="activityLevel" value={formData.activityLevel || ''} />
+                        <input type="hidden" name="dietaryPreferences" value={formData.dietaryPreferences || ''} />
                         
                         <CardHeader>
                             <CardTitle className="font-headline">Projeção de Meta com IA</CardTitle>
@@ -407,6 +407,9 @@ export default function ProfileForm() {
                                 <Input id="goalTimelineWeeks" name="goalTimelineWeeks" type="number" defaultValue="12" required />
                                 {projectionState.errors?.goalTimelineWeeks && <p className="text-destructive text-sm mt-1">{projectionState.errors.goalTimelineWeeks[0]}</p>}
                                 {projectionState.errors?.goalWeight && <p className="text-destructive text-sm mt-1">{projectionState.errors.goalWeight[0]}</p>}
+                                {projectionState.errors?.currentWeight && <p className="text-destructive text-sm mt-1">{projectionState.errors.currentWeight[0]}</p>}
+                                {projectionState.errors?.height && <p className="text-destructive text-sm mt-1">{projectionState.errors.height[0]}</p>}
+                                {projectionState.errors?.age && <p className="text-destructive text-sm mt-1">{projectionState.errors.age[0]}</p>}
                             </div>
                         </CardContent>
                         <CardFooter className="flex-col items-stretch gap-4">
