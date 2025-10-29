@@ -2,6 +2,7 @@
 
 import { projectWeightLossTimeline, ProjectWeightLossTimelineInput } from "@/ai/flows/project-weight-loss-timeline";
 import { logMeal, LogMealOutput } from '@/ai/flows/log-meal';
+import { getDailyTip, GetDailyTipInput } from "@/ai/flows/get-daily-tip";
 import { z } from "zod";
 
 // --- Goal Projection Action ---
@@ -131,7 +132,7 @@ const profileFormSchema = z.object({
 
 export type UpdateProfileState = {
     message: string;
-    data?: z.infer<typeof profileFormSchema> | null,
+    data?: Record<string, any> | null,
     errors?: {
         [key: string]: string[] | undefined;
     } | null;
@@ -155,8 +156,12 @@ export async function updateProfile(
      // Prevent empty strings from being saved, only save what's provided
      const dataToSave: Record<string, any> = {};
      for (const [key, value] of Object.entries(validatedFields.data)) {
-         if (value !== '' && value !== undefined) {
-             dataToSave[key] = value;
+         if (value !== '' && value !== undefined && value !== null) {
+              if (['currentWeight', 'height', 'weightGoal', 'age'].includes(key)) {
+                dataToSave[key] = Number(value);
+              } else {
+                dataToSave[key] = value;
+              }
          }
      }
  
@@ -167,4 +172,14 @@ export async function updateProfile(
          success: true,
      }
 }
-    
+
+// --- Get Daily Tip Action ---
+export async function fetchDailyTip(input: GetDailyTipInput): Promise<string> {
+  try {
+    const result = await getDailyTip(input);
+    return result.tip;
+  } catch (error) {
+    console.error("Error fetching daily tip:", error);
+    return "Não foi possível carregar a dica de hoje. Tente novamente mais tarde.";
+  }
+}

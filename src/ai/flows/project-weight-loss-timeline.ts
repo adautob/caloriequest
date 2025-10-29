@@ -26,7 +26,7 @@ export type ProjectWeightLossTimelineInput = z.infer<typeof ProjectWeightLossTim
 
 const ProjectWeightLossTimelineOutputSchema = z.object({
   requiredWeeklyDeficit: z.number().describe('The required weekly calorie deficit to reach the goal in the specified timeline.'),
-  personalizedTips: z.string().describe('Personalized tips for the user to help them reach their goal, in Brazilian Portuguese.'),
+  personalizedTips: z.string().describe('Personalized tips for the user to help them reach their goal, in Brazilian Portuguese, summarized in max 5 lines.'),
 });
 export type ProjectWeightLossTimelineOutput = z.infer<typeof ProjectWeightLossTimelineOutputSchema>;
 
@@ -55,12 +55,12 @@ const projectWeightLossTimelinePrompt = ai.definePrompt({
 
   Com base nessas informações, calcule o déficit calórico semanal necessário para atingir a meta de peso no prazo especificado. Assuma que 1 kg de gordura equivale a aproximadamente 7700 calorias. O peso total a perder é (peso atual - meta de peso). O déficit calórico total necessário é (peso total a perder * 7700). O déficit semanal necessário é (déficit calórico total / goalTimelineWeeks).
 
-  Além disso, forneça dicas personalizadas para o usuário o ajudar a atingir seu objetivo, levando em consideração seu nível de atividade e preferências alimentares. As dicas devem ser encorajadoras e práticas, e **obrigatoriamente em português do Brasil**.
+  Além disso, forneça dicas personalizadas para o usuário o ajudar a atingir seu objetivo, levando em consideração seu nível de atividade e preferências alimentares. As dicas devem ser encorajadoras, práticas, **resumidas em no máximo 5 linhas** e **obrigatoriamente em português do Brasil**.
 
   Sua resposta deve estar no seguinte formato JSON:
   {
     "requiredWeeklyDeficit": <number>,
-    "personalizedTips": "<string em português do Brasil>"
+    "personalizedTips": "<string em português do Brasil e resumida>"
   }`,
 });
 
