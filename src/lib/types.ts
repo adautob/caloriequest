@@ -25,6 +25,7 @@ export type WeightMeasurement = {
   createdAt: Timestamp;
 };
 
+// This type is for the static data in lib/data.ts, now used for icon mapping
 export type Achievement = {
   id: string;
   name: string;
@@ -32,6 +33,22 @@ export type Achievement = {
   icon: LucideIcon;
   unlocked: boolean;
 };
+
+// This type represents the schema in Firestore for an achievement definition
+export type AchievementDefinition = {
+  id: string; // The document ID
+  name: string;
+  description: string;
+  // We'll map the ID to a Lucide icon on the client side
+}
+
+// This type represents an achievement earned by a user
+export type UserAchievement = {
+  id: string; // The document ID
+  achievementId: string;
+  dateEarned: Timestamp;
+}
+
 
 export type UserProfile = {
     id: string;

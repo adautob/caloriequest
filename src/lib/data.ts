@@ -1,13 +1,12 @@
-import { Medal, Flame, Star, Zap, Trophy, BrainCircuit } from 'lucide-react';
-import type { Achievement } from './types';
+import { Medal, Flame, Star, Zap, Trophy, BrainCircuit, ShieldQuestion } from 'lucide-react';
 
-// This file is now deprecated for meals and weight history, but we keep it for achievements for now.
-
-export const achievements: Achievement[] = [
-  { id: '1', name: 'Primeiro Registro', description: 'Você registrou sua primeira refeição!', icon: Star, unlocked: true },
-  { id: '2', name: 'Semana Consistente', description: 'Registrou refeições por 7 dias seguidos.', icon: Medal, unlocked: true },
-  { id: '3', name: 'Meta de Calorias', description: 'Atingiu sua meta diária de calorias.', icon: Flame, unlocked: true },
-  { id: '4', name: 'Gênio da IA', description: 'Usou a projeção de meta pela primeira vez.', icon: BrainCircuit, unlocked: false },
-  { id: '5', name: 'Peso Perdido', description: 'Perdeu seus primeiros 2kg.', icon: Zap, unlocked: true },
-  { id: '6', name: 'Maratona Mensal', description: 'Registrou refeições por 30 dias.', icon: Trophy, unlocked: false },
-];
+// This file now provides a mapping from achievement ID to a Lucide icon component.
+export const achievementIcons: { [key: string]: React.ElementType } = {
+  'first-log': Star,
+  'consistent-week': Medal,
+  'calorie-goal': Flame,
+  'ai-genius': BrainCircuit,
+  'weight-loss-milestone': Zap,
+  'monthly-marathon': Trophy,
+  'default': ShieldQuestion, // A default icon for any unmapped achievement
+};

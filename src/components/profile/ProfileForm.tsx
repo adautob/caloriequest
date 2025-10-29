@@ -10,10 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Save, Wand2, Check, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore, useDoc, setDocumentNonBlocking, addDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { doc, collection, serverTimestamp } from 'firebase/firestore';
+import { useUser, useFirestore, useDoc, setDocumentNonBlocking, addDocumentNonBlocking, useMemoFirebase, useCollection } from '@/firebase';
+import { doc, collection, serverTimestamp, query, where, getDocs, writeBatch } from 'firebase/firestore';
 import { updateProfile, UpdateProfileState, getGoalProjection } from '@/app/actions';
-import type { UserProfile } from '@/lib/types';
+import type { UserProfile, UserAchievement } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
 
 const initialProfileState: UpdateProfileState = {
@@ -82,6 +82,13 @@ export default function ProfileForm() {
         if (!user || !firestore) return null;
         return doc(firestore, `users/${user.uid}`);
     }, [user, firestore]);
+    
+    const userAchievementsRef = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return collection(firestore, `users/${user.uid}/userAchievements`);
+    }, [user, firestore]);
+    
+    const { data: userAchievements } = useCollection<UserAchievement>(userAchievementsRef);
 
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
@@ -100,7 +107,8 @@ export default function ProfileForm() {
         if (userProfile) {
             setWeight(userProfile.currentWeight);
             setHeight(userProfile.height);
-            setFormKey(Date.now());
+            setCustomGoal(userProfile.dailyCalorieGoal || '');
+            setFormKey(Date.now()); // Force re-render of form with new defaultValues
         }
     }, [userProfile]);
 
@@ -125,16 +133,32 @@ export default function ProfileForm() {
 
     useEffect(() => {
         if (projectionState.message && (projectionState.errors || (!projectionState.data && !projectionState.errors))) {
-        toast({
-            title: "Erro na Projeção",
-            description: projectionState.message,
-            variant: "destructive",
-        });
+            toast({
+                title: "Erro na Projeção",
+                description: projectionState.message,
+                variant: "destructive",
+            });
         }
         if (projectionState.data?.recommendedDailyCalories) {
-        setCustomGoal(Math.round(projectionState.data.recommendedDailyCalories));
+            setCustomGoal(Math.round(projectionState.data.recommendedDailyCalories));
+            
+            // Check and award 'ai-genius' achievement
+            if(userAchievementsRef) {
+                const hasAiGeniusAchievement = userAchievements?.some(ach => ach.achievementId === 'ai-genius');
+                if (!hasAiGeniusAchievement) {
+                    addDocumentNonBlocking(userAchievementsRef, {
+                        achievementId: 'ai-genius',
+                        dateEarned: serverTimestamp(),
+                    });
+                    toast({
+                        title: "Conquista Desbloqueada!",
+                        description: "Gênio da IA: Você usou a projeção de meta pela primeira vez.",
+                        className: "bg-accent text-accent-foreground border-accent"
+                    });
+                }
+            }
         }
-    }, [projectionState, toast]);
+    }, [projectionState, toast, userAchievementsRef, userAchievements]);
 
     const handleAddWeightMeasurement = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
