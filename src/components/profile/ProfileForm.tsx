@@ -70,6 +70,7 @@ export default function ProfileForm() {
     const { user } = useUser();
     const firestore = useFirestore();
     const weightFormRef = useRef<HTMLFormElement>(null);
+    const projectionFormRef = useRef<HTMLFormElement>(null);
 
     const [profileState, profileAction] = useActionState(updateProfile, initialProfileState);
     const [projectionState, projectionAction] = useActionState(getGoalProjection, initialProjectionState);
@@ -388,7 +389,7 @@ export default function ProfileForm() {
                 </Card>
 
                 <Card>
-                    <form action={projectionAction}>
+                    <form action={projectionAction} ref={projectionFormRef}>
                         <input type="hidden" name="currentWeight" value={formData.currentWeight || ''} />
                         <input type="hidden" name="height" value={formData.height || ''} />
                         <input type="hidden" name="weightGoal" value={formData.weightGoal || ''} />
