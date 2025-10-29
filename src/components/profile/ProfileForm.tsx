@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState, useRef, useTransition } from 'react';
-import { useFormStatus, useFormState } from 'react-dom';
+import { useEffect, useMemo, useState, useRef, useTransition, useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -47,7 +47,6 @@ const profileFormSchema = z.object({
   ),
 });
 
-
 const initialProjectionState = {
   message: null,
   data: null,
@@ -87,7 +86,7 @@ export default function ProfileForm() {
     const weightFormRef = useRef<HTMLFormElement>(null);
     const [isPending, startTransition] = useTransition();
     
-    const [projectionState, projectionAction] = useFormState(getGoalProjection, initialProjectionState);
+    const [projectionState, projectionAction] = useActionState(getGoalProjection, initialProjectionState);
 
     const userProfileRef = useMemoFirebase(() => {
         if (!user || !firestore) return null;
@@ -146,48 +145,48 @@ export default function ProfileForm() {
 
     async function onSubmit(values: z.infer<typeof profileFormSchema>) {
       startTransition(async () => {
-        const result = await updateProfile(values);
-        if (result.success && userProfileRef) {
-          toast({
+        if (!userProfileRef) return;
+        
+        // The data is validated by react-hook-form, so we can optimistically save it.
+        toast({
+          title: "Salvando...",
+          description: "Seu perfil está sendo atualizado.",
+        });
+
+        const dataToSave: Record<string, any> = {};
+
+        // Only include fields that have a defined value to prevent overwriting with undefined
+        (Object.keys(values) as Array<keyof typeof values>).forEach((key) => {
+            if (values[key] !== undefined) {
+                dataToSave[key] = values[key];
+            }
+        });
+        
+        // Explicitly handle empty optional string fields if they need to be saved
+        dataToSave.dietaryPreferences = values.dietaryPreferences || '';
+
+
+        setDocumentNonBlocking(userProfileRef, dataToSave, { merge: true });
+
+        // Show success toast immediately
+        toast({
             title: "Sucesso!",
             description: "Seu perfil foi atualizado.",
-          });
-          const profileUpdate: Record<string, any> = {};
+        });
 
-          // Build the object to save, ensuring empty strings for optional text fields are saved correctly
-          Object.keys(values).forEach(keyStr => {
-            const key = keyStr as keyof typeof values;
-            const value = values[key];
-            if (value !== undefined) { // Check for undefined to allow saving 0 or empty strings
-                profileUpdate[key] = value;
-            }
-          });
-
-
-          if (Object.keys(profileUpdate).length > 0) {
-            setDocumentNonBlocking(userProfileRef, profileUpdate, { merge: true });
-          }
-
-          if (userAchievementsRef) {
-            const hasFirstLogAchievement = userAchievements?.some(ach => ach.achievementId === 'first-log');
-            if (!hasFirstLogAchievement) {
-              addDocumentNonBlocking(userAchievementsRef, {
-                achievementId: 'first-log',
-                dateEarned: serverTimestamp(),
-              });
-              toast({
-                title: "Conquista Desbloqueada!",
-                description: "Primeiro Registro: Você atualizou seu perfil pela primeira vez.",
-                className: "bg-accent text-accent-foreground border-accent"
-              });
-            }
-          }
-        } else if (result.errors) {
-            toast({
-                title: "Erro ao salvar",
-                description: "Por favor, corrija os erros no formulário.",
-                variant: "destructive",
+        if (userAchievementsRef) {
+          const hasFirstLogAchievement = userAchievements?.some(ach => ach.achievementId === 'first-log');
+          if (!hasFirstLogAchievement) {
+            addDocumentNonBlocking(userAchievementsRef, {
+              achievementId: 'first-log',
+              dateEarned: serverTimestamp(),
             });
+            toast({
+              title: "Conquista Desbloqueada!",
+              description: "Primeiro Registro: Você atualizou seu perfil pela primeira vez.",
+              className: "bg-accent text-accent-foreground border-accent"
+            });
+          }
         }
       });
     }
