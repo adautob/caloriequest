@@ -124,15 +124,15 @@ export async function addMeal(
 
 const profileFormSchema = z.object({
   name: z.string().min(2, "O nome deve ter pelo menos 2 caracteres."),
-  currentWeight: z.coerce.number().optional().or(z.literal('')),
-  height: z.coerce.number().optional().or(z.literal('')),
-  weightGoal: z.coerce.number().optional().or(z.literal('')),
-  age: z.coerce.number().optional().or(z.literal('')),
+  currentWeight: z.preprocess(val => val === '' ? undefined : val, z.coerce.number().optional()),
+  height: z.preprocess(val => val === '' ? undefined : val, z.coerce.number().optional()),
+  weightGoal: z.preprocess(val => val === '' ? undefined : val, z.coerce.number().optional()),
+  age: z.preprocess(val => val === '' ? undefined : val, z.coerce.number().optional()),
   gender: z.string().optional(),
   activityLevel: z.string().optional(),
   dietaryPreferences: z.string().optional(),
-  dailyCalorieGoal: z.coerce.number().optional().or(z.literal('')),
-  goalTimelineWeeks: z.coerce.number().optional().or(z.literal('')),
+  dailyCalorieGoal: z.preprocess(val => val === '' ? undefined : val, z.coerce.number().optional()),
+  goalTimelineWeeks: z.preprocess(val => val === '' ? undefined : val, z.coerce.number().optional()),
 });
 
 
