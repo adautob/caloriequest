@@ -18,6 +18,13 @@ export type WeightEntry = {
   weight: number;
 };
 
+export type WeightMeasurement = {
+  id: string;
+  weight: number;
+  date: string;
+  createdAt: Timestamp;
+};
+
 export type Achievement = {
   id: string;
   name: string;

@@ -1,15 +1,7 @@
 import { Medal, Flame, Star, Zap, Trophy, BrainCircuit } from 'lucide-react';
-import type { WeightEntry, Achievement } from './types';
+import type { Achievement } from './types';
 
-// This file is now deprecated for meals, but we keep it for achievements and weight history for now.
-
-export const weightHistory: WeightEntry[] = [
-  { date: '2024-07-01', weight: 85 },
-  { date: '2024-07-08', weight: 84.5 },
-  { date: '2024-07-15', weight: 84 },
-  { date: '2024-07-22', weight: 83 },
-  { date: '2024-07-29', weight: 82.5 },
-];
+// This file is now deprecated for meals and weight history, but we keep it for achievements for now.
 
 export const achievements: Achievement[] = [
   { id: '1', name: 'Primeiro Registro', description: 'Você registrou sua primeira refeição!', icon: Star, unlocked: true },
