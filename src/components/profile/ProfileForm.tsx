@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useEffect, useMemo, useState } from 'react';
+import { useActionState, useEffect, useMemo, useState, useRef } from 'react';
 import { useFormStatus } from 'react-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,7 +33,7 @@ function SubmitButton() {
 }
 
 function calculateBmi(weight: number | undefined, height: number | undefined): number | null {
-    if (!weight || !height) return null;
+    if (!weight || !height || height === 0) return null;
     const heightInMeters = height / 100;
     return parseFloat((weight / (heightInMeters * heightInMeters)).toFixed(1));
 }
@@ -54,6 +54,7 @@ export default function ProfileForm() {
     const { user } = useUser();
     const firestore = useFirestore();
     const [state, formAction] = useActionState(updateProfile, initialState);
+    const formRef = useRef<HTMLFormElement>(null);
 
     const userProfileRef = useMemoFirebase(() => {
         if (!user || !firestore) return null;
@@ -85,24 +86,36 @@ export default function ProfileForm() {
                 title: "Sucesso!",
                 description: state.message,
             });
-            const formData = new FormData();
-            const form = document.querySelector('form');
+            const form = formRef.current;
             if (form) {
                 const data = new FormData(form);
                 const profileData: Record<string, any> = {};
                 
-                // Manually build the data object to handle coercion
+                // Helper to get number from FormData, returning undefined if empty/NaN
+                const getNumberOrUndefined = (field: string) => {
+                    const value = data.get(field);
+                    if (value === null || value === '') return undefined;
+                    const num = Number(value);
+                    return isNaN(num) ? undefined : num;
+                }
+
+                // Manually build the data object to handle coercion and undefined values
                 profileData.name = data.get('name') as string;
-                profileData.currentWeight = Number(data.get('currentWeight'));
-                profileData.height = Number(data.get('height'));
-                profileData.weightGoal = Number(data.get('weightGoal'));
-                profileData.age = Number(data.get('age'));
+                profileData.currentWeight = getNumberOrUndefined('currentWeight');
+                profileData.height = getNumberOrUndefined('height');
+                profileData.weightGoal = getNumberOrUndefined('weightGoal');
+                profileData.age = getNumberOrUndefined('age');
                 profileData.gender = data.get('gender') as string;
                 profileData.activityLevel = data.get('activityLevel') as string;
                 profileData.dietaryPreferences = data.get('dietaryPreferences') as string;
 
+                // Filter out undefined values so Firestore doesn't overwrite fields with null
+                const finalProfileData = Object.fromEntries(
+                    Object.entries(profileData).filter(([_, v]) => v !== undefined)
+                );
+
                 if (userProfileRef) {
-                    setDocumentNonBlocking(userProfileRef, profileData, { merge: true });
+                    setDocumentNonBlocking(userProfileRef, finalProfileData, { merge: true });
                 }
             }
         } else if (state.message && state.errors) {
@@ -141,7 +154,7 @@ export default function ProfileForm() {
                     Atualize suas informações pessoais e metas de saúde.
                 </CardDescription>
             </CardHeader>
-            <form action={formAction} key={formKey}>
+            <form action={formAction} key={formKey} ref={formRef}>
                 <CardContent className="space-y-6">
                     <div className="space-y-2">
                         <Label htmlFor="name">Nome</Label>
@@ -152,11 +165,11 @@ export default function ProfileForm() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="currentWeight">Peso Atual (kg)</Label>
-                            <Input id="currentWeight" name="currentWeight" type="number" step="0.1" defaultValue={userProfile?.currentWeight} onChange={e => setWeight(Number(e.target.value))} />
+                            <Input id="currentWeight" name="currentWeight" type="number" step="0.1" defaultValue={userProfile?.currentWeight || ''} onChange={e => setWeight(Number(e.target.value))} />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="height">Altura (cm)</Label>
-                            <Input id="height" name="height" type="number" defaultValue={userProfile?.height} onChange={e => setHeight(Number(e.target.value))}/>
+                            <Input id="height" name="height" type="number" defaultValue={userProfile?.height || ''} onChange={e => setHeight(Number(e.target.value))}/>
                         </div>
                          <div className="space-y-2">
                             <Label>Seu IMC</Label>
@@ -171,7 +184,7 @@ export default function ProfileForm() {
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="weightGoal">Meta de Peso (kg)</Label>
-                        <Input id="weightGoal" name="weightGoal" type="number" step="0.1" defaultValue={userProfile?.weightGoal} />
+                        <Input id="weightGoal" name="weightGoal" type="number" step="0.1" defaultValue={userProfile?.weightGoal || ''} />
                     </div>
 
                     <h3 className="text-lg font-medium text-foreground pt-4 border-t">Dados para Projeção da IA</h3>
@@ -180,7 +193,7 @@ export default function ProfileForm() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="age">Idade</Label>
-                            <Input id="age" name="age" type="number" defaultValue={userProfile?.age} />
+                            <Input id="age" name="age" type="number" defaultValue={userProfile?.age || ''} />
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="gender">Gênero</Label>
@@ -222,3 +235,5 @@ export default function ProfileForm() {
         </Card>
     );
 }
+
+    
