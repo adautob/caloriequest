@@ -437,25 +437,25 @@ export default function ProfileForm() {
                               )}
                             />
                              <FormField
-                              control={form.control}
-                              name="gender"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Gênero</FormLabel>
-                                    <FormControl>
-                                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                                control={form.control}
+                                name="gender"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Gênero</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                        <FormControl>
                                             <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="male">Masculino</SelectItem>
-                                                <SelectItem value="female">Feminino</SelectItem>
-                                                <SelectItem value="other">Outro</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}
-                            />
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="male">Masculino</SelectItem>
+                                            <SelectItem value="female">Feminino</SelectItem>
+                                            <SelectItem value="other">Outro</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                             />
                         </div>
 
                          <FormField
@@ -464,18 +464,18 @@ export default function ProfileForm() {
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Nível de Atividade</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
                                     <FormControl>
-                                        <Select onValueChange={field.onChange} value={field.value || ''}>
                                         <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="sedentary">Sedentário</SelectItem>
-                                            <SelectItem value="lightly active">Levemente Ativo</SelectItem>
-                                            <SelectItem value="moderately active">Moderadamente Ativo</SelectItem>
-                                            <SelectItem value="very active">Muito Ativo</SelectItem>
-                                            <SelectItem value="extra active">Extremamente Ativo</SelectItem>
-                                        </SelectContent>
-                                        </Select>
                                     </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="sedentary">Sedentário</SelectItem>
+                                        <SelectItem value="lightly active">Levemente Ativo</SelectItem>
+                                        <SelectItem value="moderately active">Moderadamente Ativo</SelectItem>
+                                        <SelectItem value="very active">Muito Ativo</SelectItem>
+                                        <SelectItem value="extra active">Extremamente Ativo</SelectItem>
+                                    </SelectContent>
+                                    </Select>
                                     <FormMessage />
                                 </FormItem>
                             )}
