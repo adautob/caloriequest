@@ -4,7 +4,7 @@ import { projectWeightLossTimeline, ProjectWeightLossTimelineInput } from "@/ai/
 import { logMeal, LogMealOutput } from '@/ai/flows/log-meal';
 import { getDailyTip, GetDailyTipInput } from "@/ai/flows/get-daily-tip";
 import { z } from "zod";
-import { getFirebase } from "@/firebase/server-provider";
+import { initializeFirebase } from "@/firebase/index";
 import { doc, setDoc } from "firebase/firestore";
 import { revalidatePath } from "next/cache";
 
@@ -211,7 +211,8 @@ export async function updateProfile(
     }
 
     try {
-        const { firestore } = getFirebase();
+        // Use the client SDK initialized on the server
+        const { firestore } = initializeFirebase();
         const userProfileRef = doc(firestore, 'users', uid);
         
         // Create an object with only the defined values to avoid overwriting fields with undefined
@@ -221,7 +222,8 @@ export async function updateProfile(
                 dataToSave[key] = value;
             }
         }
-        
+
+        // Use the client SDK's setDoc
         await setDoc(userProfileRef, dataToSave, { merge: true });
 
         revalidatePath('/profile');
