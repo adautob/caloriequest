@@ -20,67 +20,6 @@ import { getGoalProjection, updateProfile, UpdateProfileState, GoalProjectionSta
 import type { UserProfile, UserAchievement } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
 
-const profileFormSchema = z.object({
-  uid: z.string().min(1, { message: "UID do usuário é obrigatório." }),
-  name: z.string().min(2, { message: "O nome deve ter pelo menos 2 caracteres." }),
-  currentWeight: z.preprocess(
-    (val) => (val === '' ? undefined : val),
-    z.coerce.number({invalid_type_error: "Peso inválido"}).optional()
-  ),
-  height: z.preprocess(
-    (val) => (val === '' ? undefined : val),
-    z.coerce.number({invalid_type_error: "Altura inválida"}).optional()
-  ),
-  weightGoal: z.preprocess(
-    (val) => (val === '' ? undefined : val),
-    z.coerce.number({invalid_type_error: "Meta de peso inválida"}).optional()
-  ),
-  age: z.preprocess(
-    (val) => (val === '' ? undefined : val),
-    z.coerce.number({invalid_type_error: "Idade inválida"}).optional()
-  ),
-  gender: z.string().optional(),
-  activityLevel: z.string().optional(),
-  dietaryPreferences: z.string().optional(),
-  dailyCalorieGoal: z.preprocess(
-    (val) => (val === '' ? undefined : val),
-    z.coerce.number({invalid_type_error: "Meta de calorias inválida"}).optional()
-  ),
-});
-
-const goalProjectionFormSchema = z.object({
-  currentWeight: z.preprocess(
-    (val) => (val === '' ? undefined : val),
-    z.coerce.number({ required_error: 'Peso atual é obrigatório.' }).min(30, 'Peso deve ser no mínimo 30kg.')
-  ),
-  goalWeight: z.preprocess(
-    (val) => (val === '' ? undefined : val),
-    z.coerce.number({ required_error: 'Meta de peso é obrigatória.' }).min(30, 'Meta de peso deve ser no mínimo 30kg.')
-  ),
-  height: z.preprocess(
-    (val) => (val === '' ? undefined : val),
-    z.coerce.number({ required_error: 'Altura é obrigatória.' }).min(100, 'Altura deve ser no mínimo 100cm.')
-  ),
-  age: z.preprocess(
-    (val) => (val === '' ? undefined : val),
-    z.coerce.number({ required_error: 'Idade é obrigatória.' }).min(13, 'Você deve ter pelo menos 13 anos.')
-  ),
-  gender: z.string({ required_error: 'Gênero é obrigatório.' }).min(1, 'Gênero é obrigatório.'),
-  activityLevel: z.string({ required_error: 'Nível de atividade é obrigatório.' }).min(1, 'Nível de atividade é obrigatório.'),
-  goalTimelineWeeks: z.preprocess(
-    (val) => (val === '' ? undefined : val),
-    z.coerce.number({ required_error: 'O tempo para atingir a meta é obrigatório.' }).min(1, 'O tempo para atingir a meta deve ser de pelo menos 1 semana.')
-  ),
-  dietaryPreferences: z.string().optional(),
-}).refine(data => {
-    if (data.currentWeight === undefined || data.goalWeight === undefined) return true;
-    return data.currentWeight > data.goalWeight;
-}, {
-  message: "O peso atual deve ser maior que a meta de peso.",
-  path: ["goalWeight"],
-});
-
-
 const initialProjectionState: GoalProjectionState = {
   message: null,
   data: null,
@@ -127,8 +66,8 @@ export default function ProfileForm() {
     const weightFormRef = useRef<HTMLFormElement>(null);
     const [isPending, startTransition] = useTransition();
     
-    const [profileState, profileAction] = useActionState(updateProfile.bind(null, profileFormSchema), initialProfileState);
-    const [projectionState, projectionAction] = useActionState(getGoalProjection.bind(null, goalProjectionFormSchema), initialProjectionState);
+    const [profileState, profileAction] = useActionState(updateProfile, initialProfileState);
+    const [projectionState, projectionAction] = useActionState(getGoalProjection, initialProjectionState);
 
     const userProfileRef = useMemoFirebase(() => {
         if (!user || !firestore) return null;
@@ -144,9 +83,9 @@ export default function ProfileForm() {
 
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
-    const form = useForm<z.infer<typeof profileFormSchema>>({
-      resolver: zodResolver(profileFormSchema),
+    const form = useForm({
       defaultValues: {
+        uid: user?.uid || '',
         name: '',
         currentWeight: undefined,
         height: undefined,
