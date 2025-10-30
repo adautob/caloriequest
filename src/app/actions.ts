@@ -38,7 +38,6 @@ const profileFormSchema = z.object({
   ),
 });
 
-
 const goalProjectionFormSchema = z.object({
   currentWeight: z.preprocess(
     (val) => (val === '' ? undefined : val),
@@ -190,10 +189,15 @@ export async function updateProfile(
     prevState: UpdateProfileState,
     formData: FormData,
 ): Promise<UpdateProfileState> {
+    console.log('--- [ACTION] updateProfile iniciada ---');
+    const rawData = Object.fromEntries(formData.entries());
+    console.log('[ACTION] Dados recebidos do formulário:', rawData);
     
-    const validatedFields = profileFormSchema.safeParse(Object.fromEntries(formData.entries()));
+    const validatedFields = profileFormSchema.safeParse(rawData);
+    console.log('[ACTION] Resultado da validação:', JSON.stringify(validatedFields, null, 2));
     
     if (!validatedFields.success) {
+        console.error('[ACTION] Falha na validação:', validatedFields.error.flatten());
         return {
             message: "Dados inválidos.",
             errors: validatedFields.error.errors,
@@ -204,27 +208,31 @@ export async function updateProfile(
     const { uid, ...profileData } = validatedFields.data;
 
     if (!uid) {
+        console.error('[ACTION] Erro: UID do usuário está faltando.');
         return {
             message: "Você precisa estar logado para atualizar o perfil.",
             success: false,
         }
     }
 
+    console.log(`[ACTION] Preparando para salvar dados para o UID: ${uid}`);
+
     try {
-        // Use the client SDK initialized on the server
+        console.log('[ACTION] Inicializando Firebase...');
         const { firestore } = initializeFirebase();
         const userProfileRef = doc(firestore, 'users', uid);
         
-        // Create an object with only the defined values to avoid overwriting fields with undefined
         const dataToSave: { [key: string]: any } = {};
         for (const [key, value] of Object.entries(profileData)) {
             if (value !== undefined) {
                 dataToSave[key] = value;
             }
         }
+        console.log('[ACTION] Objeto a ser salvo no Firestore:', dataToSave);
 
-        // Use the client SDK's setDoc
+        console.log('[ACTION] Tentando executar setDoc...');
         await setDoc(userProfileRef, dataToSave, { merge: true });
+        console.log('[ACTION] setDoc executado com sucesso.');
 
         revalidatePath('/profile');
         revalidatePath('/');
@@ -234,7 +242,7 @@ export async function updateProfile(
             success: true,
         }
     } catch (error) {
-        console.error("Error updating profile:", error);
+        console.error("[ACTION] Erro ao atualizar perfil no Firestore:", error);
         return {
             message: "Ocorreu um erro ao atualizar seu perfil.",
             success: false,
