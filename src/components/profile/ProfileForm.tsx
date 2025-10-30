@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, useRef, useTransition, useActionState } from 'react';
-import { useFormStatus, useForm } from 'react-hook-form';
+import { useEffect, useState, useRef, useActionState } from 'react';
+import { useForm } from 'react-hook-form';
+import { useFormStatus } from 'react-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -15,7 +16,7 @@ import { Loader2, Save, Wand2, Check, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useDoc, setDocumentNonBlocking, addDocumentNonBlocking, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection, serverTimestamp } from 'firebase/firestore';
-import { getGoalProjection, updateProfile } from '@/app/actions';
+import { getGoalProjection, updateProfile, UpdateProfileState, GoalProjectionState } from '@/app/actions';
 import type { UserProfile, UserAchievement } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
 
@@ -46,13 +47,14 @@ const profileFormSchema = z.object({
   ),
 });
 
-const initialProjectionState = {
+
+const initialProjectionState: GoalProjectionState = {
   message: null,
   data: null,
   errors: null,
 };
 
-const initialProfileState = {
+const initialProfileState: UpdateProfileState = {
     message: '',
     errors: undefined,
     success: false,
@@ -90,6 +92,7 @@ export default function ProfileForm() {
     const { user } = useUser();
     const firestore = useFirestore();
     const weightFormRef = useRef<HTMLFormElement>(null);
+    
     const [profileState, profileAction] = useActionState(updateProfile, initialProfileState);
     const [projectionState, projectionAction] = useActionState(getGoalProjection, initialProjectionState);
 

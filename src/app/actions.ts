@@ -43,7 +43,7 @@ const goalProjectionFormSchema = z.object({
 });
 
 
-type GoalProjectionState = {
+export type GoalProjectionState = {
   message?: string | null;
   data?: {
     requiredWeeklyDeficit: number;
