@@ -15,21 +15,76 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Loader2, Save, Wand2, Check, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useDoc, setDocumentNonBlocking, addDocumentNonBlocking, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection, serverTimestamp } from 'firebase/firestore';
-import { getGoalProjection, updateProfile, UpdateProfileState, GoalProjectionState } from '@/app/actions';
+import { doc, collection, serverTimestamp, setDoc } from 'firebase/firestore';
+import { getGoalProjection, GoalProjectionState } from '@/app/actions';
 import type { UserProfile, UserAchievement } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
+
+const goalProjectionFormSchema = z.object({
+  currentWeight: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.coerce.number({ required_error: 'Peso atual é obrigatório.' }).min(30, 'Peso deve ser no mínimo 30kg.')
+  ),
+  goalWeight: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.coerce.number({ required_error: 'Meta de peso é obrigatória.' }).min(30, 'Meta de peso deve ser no mínimo 30kg.')
+  ),
+  height: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.coerce.number({ required_error: 'Altura é obrigatória.' }).min(100, 'Altura deve ser no mínimo 100cm.')
+  ),
+  age: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.coerce.number({ required_error: 'Idade é obrigatória.' }).min(13, 'Você deve ter pelo menos 13 anos.')
+  ),
+  gender: z.string({ required_error: 'Gênero é obrigatório.' }).min(1, 'Gênero é obrigatório.'),
+  activityLevel: z.string({ required_error: 'Nível de atividade é obrigatório.' }).min(1, 'Nível de atividade é obrigatório.'),
+  goalTimelineWeeks: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.coerce.number({ required_error: 'O tempo para atingir a meta é obrigatório.' }).min(1, 'O tempo para atingir a meta deve ser de pelo menos 1 semana.')
+  ),
+  dietaryPreferences: z.string().optional(),
+}).refine(data => {
+    if (data.currentWeight === undefined || data.goalWeight === undefined) return true;
+    return data.currentWeight > data.goalWeight;
+}, {
+  message: "O peso atual deve ser maior que a meta de peso.",
+  path: ["goalWeight"],
+});
+
+
+const profileFormSchema = z.object({
+  name: z.string().min(2, { message: "O nome deve ter pelo menos 2 caracteres." }),
+  currentWeight: z.preprocess(
+    (val) => (val === '' || val === undefined ? undefined : val),
+    z.coerce.number({invalid_type_error: "Peso inválido"}).optional()
+  ),
+  height: z.preprocess(
+    (val) => (val === '' || val === undefined ? undefined : val),
+    z.coerce.number({invalid_type_error: "Altura inválida"}).optional()
+  ),
+  weightGoal: z.preprocess(
+    (val) => (val === '' || val === undefined ? undefined : val),
+    z.coerce.number({invalid_type_error: "Meta de peso inválida"}).optional()
+  ),
+  age: z.preprocess(
+    (val) => (val === '' || val === undefined ? undefined : val),
+    z.coerce.number({invalid_type_error: "Idade inválida"}).optional()
+  ),
+  gender: z.string().optional(),
+  activityLevel: z.string().optional(),
+  dietaryPreferences: z.string().optional(),
+  dailyCalorieGoal: z.preprocess(
+    (val) => (val === '' || val === undefined ? undefined : val),
+    z.coerce.number({invalid_type_error: "Meta de calorias inválida"}).optional()
+  ),
+});
+
 
 const initialProjectionState: GoalProjectionState = {
   message: null,
   data: null,
   errors: null,
-};
-
-const initialProfileState: UpdateProfileState = {
-    message: '',
-    errors: undefined,
-    success: false,
 };
 
 
@@ -66,7 +121,6 @@ export default function ProfileForm() {
     const weightFormRef = useRef<HTMLFormElement>(null);
     const [isPending, startTransition] = useTransition();
     
-    const [profileState, profileAction] = useActionState(updateProfile, initialProfileState);
     const [projectionState, projectionAction] = useActionState(getGoalProjection, initialProjectionState);
 
     const userProfileRef = useMemoFirebase(() => {
@@ -83,15 +137,15 @@ export default function ProfileForm() {
 
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
-    const form = useForm({
+    const form = useForm<z.infer<typeof profileFormSchema>>({
+      resolver: zodResolver(profileFormSchema),
       defaultValues: {
-        uid: user?.uid || '',
         name: '',
-        currentWeight: undefined as number | undefined,
-        height: undefined as number | undefined,
-        weightGoal: undefined as number | undefined,
-        dailyCalorieGoal: undefined as number | undefined,
-        age: undefined as number | undefined,
+        currentWeight: undefined,
+        height: undefined,
+        weightGoal: undefined,
+        dailyCalorieGoal: undefined,
+        age: undefined,
         gender: '',
         activityLevel: '',
         dietaryPreferences: '',
@@ -107,7 +161,6 @@ export default function ProfileForm() {
     useEffect(() => {
         if (userProfile) {
             form.reset({
-                uid: user?.uid,
                 name: userProfile.name || user?.displayName || '',
                 currentWeight: userProfile.currentWeight,
                 height: userProfile.height,
@@ -120,40 +173,11 @@ export default function ProfileForm() {
             });
         } else if (user) {
             form.reset({
-                uid: user.uid,
                 name: user.displayName || '',
             })
         }
     }, [userProfile, user, form]);
 
-     useEffect(() => {
-        if (profileState.success) {
-            toast({
-                title: "Sucesso!",
-                description: profileState.message,
-            });
-            if (userAchievementsRef) {
-              const hasFirstLogAchievement = userAchievements?.some(ach => ach.achievementId === 'first-log');
-              if (!hasFirstLogAchievement) {
-                addDocumentNonBlocking(userAchievementsRef, {
-                  achievementId: 'first-log',
-                  dateEarned: serverTimestamp(),
-                });
-                toast({
-                  title: "Conquista Desbloqueada!",
-                  description: "Primeiro Registro: Você atualizou seu perfil pela primeira vez.",
-                  className: "bg-accent text-accent-foreground border-accent"
-                });
-              }
-            }
-        } else if (profileState.message && !profileState.success && profileState.message !== '') {
-            toast({
-                title: "Erro ao salvar",
-                description: profileState.message,
-                variant: "destructive",
-            });
-        }
-    }, [profileState, toast, userAchievementsRef, userAchievements]);
 
     useEffect(() => {
         const errorMsg = projectionState.message;
@@ -283,23 +307,48 @@ export default function ProfileForm() {
         );
     }
     
-    const onProfileSubmit = form.handleSubmit((data) => {
-        const formData = new FormData();
-        Object.entries(data).forEach(([key, value]) => {
-             if (value !== undefined && value !== null && value !== '') {
-                formData.append(key, String(value));
-            }
-        });
+    const onProfileSubmit = async (data: z.infer<typeof profileFormSchema>) => {
+      startTransition(async () => {
+        if (!userProfileRef) {
+          toast({ title: "Erro", description: "Usuário não encontrado.", variant: "destructive" });
+          return;
+        }
+        
+        try {
+          await setDoc(userProfileRef, data, { merge: true });
 
-        startTransition(() => {
-            profileAction(formData);
-        });
-    });
+          toast({
+            title: "Sucesso!",
+            description: "Seu perfil foi atualizado.",
+          });
+          
+          if (userAchievementsRef) {
+            const hasFirstLogAchievement = userAchievements?.some(ach => ach.achievementId === 'first-log');
+            if (!hasFirstLogAchievement) {
+              addDocumentNonBlocking(userAchievementsRef, {
+                achievementId: 'first-log',
+                dateEarned: serverTimestamp(),
+              });
+              toast({
+                title: "Conquista Desbloqueada!",
+                description: "Primeiro Registro: Você atualizou seu perfil pela primeira vez.",
+                className: "bg-accent text-accent-foreground border-accent"
+              });
+            }
+          }
+
+        } catch (error) {
+          console.error("Erro ao salvar perfil:", error);
+          toast({ title: "Erro ao salvar", description: "Não foi possível atualizar seu perfil. Tente novamente.", variant: "destructive" });
+        }
+      });
+    };
+
 
     return (
         <div className="space-y-6">
           <Form {...form}>
-            <form onSubmit={onProfileSubmit}>
+            <form onSubmit={form.handleSubmit(onProfileSubmit)}>
               <Card>
                     <CardHeader>
                         <CardTitle className="font-headline">Meu Perfil</CardTitle>
@@ -308,17 +357,6 @@ export default function ProfileForm() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                         <FormField
-                          control={form.control}
-                          name="uid"
-                          render={({ field }) => (
-                            <FormItem>
-                               <FormControl>
-                                <Input type="hidden" {...field} />
-                              </FormControl>
-                            </FormItem>
-                          )}
-                        />
                         <FormField
                           control={form.control}
                           name="name"
@@ -341,7 +379,7 @@ export default function ProfileForm() {
                                 <FormItem>
                                   <FormLabel>Peso Atual (kg)</FormLabel>
                                   <FormControl>
-                                    <Input type="number" step="0.1" placeholder="85.5" {...field} value={field.value ?? ''} />
+                                    <Input type="number" step="0.1" placeholder="85.5" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={field.value ?? ''} />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>
@@ -354,7 +392,7 @@ export default function ProfileForm() {
                                 <FormItem>
                                   <FormLabel>Altura (cm)</FormLabel>
                                   <FormControl>
-                                    <Input type="number" placeholder="175" {...field} value={field.value ?? ''} />
+                                    <Input type="number" placeholder="175" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={field.value ?? ''} />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>
@@ -379,7 +417,7 @@ export default function ProfileForm() {
                                 <FormItem>
                                   <FormLabel>Meta de Peso (kg)</FormLabel>
                                   <FormControl>
-                                    <Input type="number" step="0.1" placeholder="75" {...field} value={field.value ?? ''} />
+                                    <Input type="number" step="0.1" placeholder="75" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={field.value ?? ''} />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>
@@ -392,7 +430,7 @@ export default function ProfileForm() {
                                 <FormItem>
                                   <FormLabel>Meta Diária de Calorias (kcal)</FormLabel>
                                   <FormControl>
-                                    <Input type="number" step="10" placeholder="2200" {...field} value={field.value ?? ''} />
+                                    <Input type="number" step="10" placeholder="2200" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={field.value ?? ''} />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>
@@ -408,7 +446,7 @@ export default function ProfileForm() {
                                 <FormItem>
                                   <FormLabel>Idade</FormLabel>
                                   <FormControl>
-                                    <Input type="number" placeholder="30" {...field} value={field.value ?? ''} />
+                                    <Input type="number" placeholder="30" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={field.value ?? ''} />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>
@@ -491,7 +529,7 @@ export default function ProfileForm() {
                     {/* Pass all form values from react-hook-form's state */}
                     <input type="hidden" name="currentWeight" value={form.watch('currentWeight') || ''} />
                     <input type="hidden" name="height" value={form.watch('height') || ''} />
-                    <input type="hidden" name="weightGoal" value={form.watch('weightGoal') || ''} />
+                    <input type="hidden" name="goalWeight" value={form.watch('weightGoal') || ''} />
                     <input type="hidden" name="age" value={form.watch('age') || ''} />
                     <input type="hidden" name="gender" value={form.watch('gender') || ''} />
                     <input type="hidden" name="activityLevel" value={form.watch('activityLevel') || ''} />

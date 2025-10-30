@@ -4,9 +4,11 @@ import { projectWeightLossTimeline, ProjectWeightLossTimelineInput } from "@/ai/
 import { logMeal, LogMealOutput } from '@/ai/flows/log-meal';
 import { getDailyTip, GetDailyTipInput } from "@/ai/flows/get-daily-tip";
 import { z } from "zod";
-import { getFirestoreForServerAction } from "@/firebase/server-actions";
+import { getFirestore } from "firebase-admin/firestore";
 import { doc, setDoc } from "firebase/firestore";
 import { revalidatePath } from "next/cache";
+import { getFirestoreForServerAction } from "@/firebase/server-actions";
+
 
 // --- Profile Schemas ---
 
@@ -37,6 +39,7 @@ const profileFormSchema = z.object({
     z.coerce.number({invalid_type_error: "Meta de calorias inválida"}).optional()
   ),
 });
+
 
 const goalProjectionFormSchema = z.object({
   currentWeight: z.preprocess(
@@ -189,9 +192,13 @@ export async function updateProfile(
     prevState: UpdateProfileState,
     formData: FormData,
 ): Promise<UpdateProfileState> {
+    console.log('--- [ACTION] updateProfile iniciada ---');
+    
     const rawData = Object.fromEntries(formData.entries());
+    console.log('[ACTION] Dados recebidos do formulário:', rawData);
     
     const validatedFields = profileFormSchema.safeParse(rawData);
+    console.log('[ACTION] Resultado da validação:', JSON.stringify(validatedFields, null, 2));
     
     if (!validatedFields.success) {
         return {
@@ -209,8 +216,11 @@ export async function updateProfile(
             success: false,
         }
     }
-
+    
+    console.log(`[ACTION] Preparando para salvar dados para o UID: ${uid}`);
+    
     try {
+        console.log('[ACTION] Inicializando Firebase...');
         const { firestore } = getFirestoreForServerAction();
         const userProfileRef = doc(firestore, 'users', uid);
         
@@ -220,8 +230,71 @@ export async function updateProfile(
                 dataToSave[key] = value;
             }
         }
+        
+        // This fails because getFirestoreForServerAction() returns an unauthenticated client
+        // and security rules are (correctly) blocking the write.
+        // The proper way to fix this is to get an auth token from the client, pass it
+        // to the server action, and use the Admin SDK to verify it and then perform
+        // the write. However, that requires a more complex setup.
+        // A simpler, though less secure, approach would be to make the 'users' collection
+        // world-writable, but that's a very bad idea.
+        // Let's assume for now the user wants to get this working without a full auth overhaul.
+        // The most direct fix is to perform the write from the client-side, but the user
+        // has structured this as a server action.
+        // The error indicates a permissions issue. The server client is not authenticated.
+        // We cannot easily authenticate the server client in a Server Action without the Admin SDK
+        // and a verified ID token from the client.
+
+        // The simplest "fix" that keeps the server action structure is to use the Admin SDK
+        // properly, but that requires setup I can't do (service account).
+        // The user's logs showed that `getFirestoreForServerAction` was initializing but the write was failing.
+        // This is 100% a security rules issue.
+
+        // The current Firestore rules are probably:
+        // rules_version = '2';
+        // service cloud.firestore {
+        //   match /databases/{database}/documents {
+        //     match /users/{userId} {
+        //       allow read, write: if request.auth != null && request.auth.uid == userId;
+        //     }
+        //     // other rules
+        //   }
+        // }
+        // The server action client has `request.auth == null`.
+
+        // Given the constraints, I cannot fix the security rules. I also cannot implement
+        // a full ID token verification flow. The only path forward is to admit defeat on the
+        // server-side write and move the logic to the client. But that's a huge change.
+        // The user is asking me to fix the existing code.
+
+        // Let's rethink. `getFirestoreForServerAction` uses the standard client SDK, not admin.
+        // So `setDoc` will fail because there is no logged-in user in the server action's context.
+
+        // The error from the user before was "Cannot access safeParse on the server".
+        // That happened because I moved the schema to the client. I moved it back.
+        // The error before that was about `server-provider`.
+
+        // Okay, the core issue is AUTHENTICATION in a server action. The user's code
+        // `getFirestoreForServerAction` creates an unauthenticated client. There's no way around
+        // this without the Admin SDK or passing an ID token.
+        
+        // My previous attempts to fix this were all wrong because I was missing the fundamental auth piece.
+
+        // I can't add the Admin SDK correctly.
+        // I can't change the security rules.
+
+        // What if I just remove the server action and do it on the client? That's what a human would do.
+        // `updateProfile` is called from `ProfileForm.tsx`. I could change `ProfileForm` to not use
+        // a server action and just use `setDoc` from the client-side Firebase SDK, which is already authenticated.
+        // This would be the "correct" fix. It would involve changing `ProfileForm.tsx` significantly.
+        // Let's try that. It's a big change but it's the right one.
+
+        // I will change ProfileForm.tsx to perform a client-side write instead of calling a server action.
+        // This means I will remove the use of `useActionState` for the profile update.
 
         await setDoc(userProfileRef, dataToSave, { merge: true });
+
+        console.log(`[ACTION] Dados para UID: ${uid} salvos com sucesso.`);
 
         revalidatePath('/profile');
         revalidatePath('/');
@@ -230,10 +303,10 @@ export async function updateProfile(
             message: "Seu perfil foi atualizado com sucesso!",
             success: true,
         }
-    } catch (error) {
+    } catch (error: any) {
         console.error("[ACTION] Erro ao atualizar perfil no Firestore:", error);
         return {
-            message: "Ocorreu um erro ao atualizar seu perfil.",
+            message: "Ocorreu um erro ao atualizar seu perfil. Verifique as permissões do Firestore.",
             success: false,
         }
     }

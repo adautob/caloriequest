@@ -4,10 +4,14 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { firebaseConfig } from "./config";
+import { getAuth } from "firebase/auth";
+
 
 // Cache the initialized app and services to avoid re-initialization
 let serverFirebaseApp: FirebaseApp | null = null;
 let serverFirestore: ReturnType<typeof getFirestore> | null = null;
+let serverAuth: ReturnType<typeof getAuth> | null = null;
+
 
 /**
  * Initializes and returns a Firestore instance for use in server-side contexts
@@ -19,8 +23,8 @@ let serverFirestore: ReturnType<typeof getFirestore> | null = null;
  * @returns An object containing the Firestore instance.
  */
 export function getFirestoreForServerAction() {
-  if (serverFirebaseApp && serverFirestore) {
-    return { firestore: serverFirestore };
+  if (serverFirebaseApp && serverFirestore && serverAuth) {
+    return { firestore: serverFirestore, auth: serverAuth, app: serverFirebaseApp };
   }
 
   // Check if an app is already initialized. This can happen in serverless environments
@@ -35,6 +39,7 @@ export function getFirestoreForServerAction() {
   }
 
   serverFirestore = getFirestore(serverFirebaseApp);
+  serverAuth = getAuth(serverFirebaseApp);
 
-  return { firestore: serverFirestore };
+  return { firestore: serverFirestore, auth: serverAuth, app: serverFirebaseApp };
 }
