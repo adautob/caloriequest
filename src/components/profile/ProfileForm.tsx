@@ -190,7 +190,7 @@ export default function ProfileForm() {
             console.log('[DEBUG] useEffect: Chamando form.reset() com os valores:', formValues);
             form.reset(formValues);
         }
-    }, [userProfile, user, form]);
+    }, [userProfile, user, form.reset]);
 
     const [isEditingGoal, setIsEditingGoal] = useState(false);
     
@@ -380,7 +380,17 @@ export default function ProfileForm() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        <input type="hidden" {...form.register('uid')} value={user?.uid || ''} />
+                        <FormField
+                          control={form.control}
+                          name="uid"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormControl>
+                                <Input type="hidden" {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
                         <FormField
                           control={form.control}
                           name="name"
@@ -482,8 +492,7 @@ export default function ProfileForm() {
                               render={({ field }) => (
                                 <FormItem>
                                   <FormLabel>Gênero</FormLabel>
-                                  <input type="hidden" {...form.register('gender')} />
-                                  <Select onValueChange={field.onChange} value={field.value}>
+                                  <Select onValueChange={field.onChange} value={field.value || ''}>
                                     <FormControl>
                                       <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                                     </FormControl>
@@ -505,8 +514,7 @@ export default function ProfileForm() {
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Nível de Atividade</FormLabel>
-                                    <input type="hidden" {...form.register('activityLevel')} />
-                                    <Select onValueChange={field.onChange} value={field.value}>
+                                    <Select onValueChange={field.onChange} value={field.value || ''}>
                                     <FormControl>
                                         <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                                     </FormControl>
