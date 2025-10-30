@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useActionState, useMemo } from 'react';
+import { useEffect, useState, useRef, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,7 +16,7 @@ import { Loader2, Save, Wand2, Check, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useDoc, setDocumentNonBlocking, addDocumentNonBlocking, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection, serverTimestamp } from 'firebase/firestore';
-import { getGoalProjection, GoalProjectionState, validateProfile, ValidateProfileState } from '@/app/actions';
+import { getGoalProjection, GoalProjectionState, validateProfile, ProfileFormData } from '@/app/actions';
 import type { UserProfile, UserAchievement } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
 
@@ -54,11 +54,6 @@ const initialProjectionState: GoalProjectionState = {
   message: null,
   data: null,
   errors: null,
-};
-
-const initialProfileState: ValidateProfileState = {
-    message: '',
-    success: false,
 };
 
 function ProfileSubmitButton() {
@@ -103,7 +98,6 @@ export default function ProfileForm() {
     const firestore = useFirestore();
     const weightFormRef = useRef<HTMLFormElement>(null);
     
-    const [profileState, profileAction] = useActionState(validateProfile, initialProfileState);
     const [projectionState, projectionAction] = useActionState(getGoalProjection, initialProjectionState);
     
     const userProfileRef = useMemoFirebase(() => {
@@ -151,13 +145,15 @@ export default function ProfileForm() {
             };
             form.reset(formValues);
         }
-    }, [userProfile, form]);
-    
-    useEffect(() => {
-        if (profileState.success && profileState.data) {
-            const { uid, ...profileData } = profileState.data;
+    }, [userProfile, form, user]);
 
+
+    const onSubmit = async (data: ProfileFormData) => {
+        const result = await validateProfile(data);
+
+        if (result.success && result.data) {
             if (userProfileRef) {
+                const { uid, ...profileData } = result.data;
                 const dataToSave: { [key: string]: any } = {};
                 for (const [key, value] of Object.entries(profileData)) {
                     if (value !== undefined) {
@@ -166,20 +162,18 @@ export default function ProfileForm() {
                 }
                 setDocumentNonBlocking(userProfileRef, dataToSave, { merge: true });
             }
-
             toast({
                 title: "Sucesso!",
                 description: "Seu perfil foi atualizado.",
             });
-
-        } else if (profileState.message && !profileState.success && profileState.errors) {
+        } else {
             toast({
                 title: "Erro ao salvar",
-                description: profileState.message,
+                description: result.message || "Ocorreu um erro desconhecido.",
                 variant: "destructive",
             });
         }
-    }, [profileState, toast, userProfileRef]);
+    }
 
 
     const userAchievementsRef = useMemoFirebase(() => {
@@ -321,7 +315,7 @@ export default function ProfileForm() {
     return (
         <div className="space-y-6">
           <Form {...form}>
-            <form action={profileAction}>
+            <form onSubmit={form.handleSubmit(onSubmit)}>
               <Card>
                     <CardHeader>
                         <CardTitle className="font-headline">Meu Perfil</CardTitle>
@@ -531,7 +525,10 @@ export default function ProfileForm() {
                         />
                     </CardContent>
                      <CardFooter className="flex justify-end p-4 border-t">
-                        <ProfileSubmitButton />
+                        <Button type="submit" variant="secondary">
+                            <Save className="mr-2 h-4 w-4" />
+                            Salvar Alterações
+                        </Button>
                     </CardFooter>
               </Card>
             </form>

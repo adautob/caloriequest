@@ -37,6 +37,8 @@ const profileFormSchema = z.object({
   ),
 });
 
+export type ProfileFormData = z.infer<typeof profileFormSchema>;
+
 
 const goalProjectionFormSchema = z.object({
   currentWeight: z.preprocess(
@@ -183,15 +185,13 @@ export type ValidateProfileState = {
     message: string;
     errors?: z.ZodError['errors'];
     success: boolean;
-    data?: z.infer<typeof profileFormSchema>;
+    data?: ProfileFormData;
 }
 
 export async function validateProfile(
-    prevState: ValidateProfileState,
-    formData: FormData,
+    rawData: ProfileFormData,
 ): Promise<ValidateProfileState> {
     
-    const rawData = Object.fromEntries(formData.entries());
     const validatedFields = profileFormSchema.safeParse(rawData);
     
     if (!validatedFields.success) {
