@@ -4,9 +4,7 @@ import { projectWeightLossTimeline, ProjectWeightLossTimelineInput } from "@/ai/
 import { logMeal, LogMealOutput } from '@/ai/flows/log-meal';
 import { getDailyTip, GetDailyTipInput } from "@/ai/flows/get-daily-tip";
 import { z } from "zod";
-import { doc, setDoc } from "firebase/firestore";
 import { revalidatePath } from "next/cache";
-import { getFirestoreForServerAction } from "@/firebase/server-actions";
 
 
 // --- Profile Schemas ---
@@ -179,22 +177,26 @@ export async function addMeal(
     }
 }
 
-// --- Update Profile Action ---
+// --- Validate Profile Action ---
 
-export type UpdateProfileState = {
+export type ValidateProfileState = {
     message: string;
     errors?: z.ZodError['errors'];
     success: boolean;
+    data?: z.infer<typeof profileFormSchema>;
 }
 
-export async function updateProfile(
-    prevState: UpdateProfileState,
+export async function validateProfile(
+    prevState: ValidateProfileState,
     formData: FormData,
-): Promise<UpdateProfileState> {
+): Promise<ValidateProfileState> {
     
+    console.log('[ACTION] validateProfile iniciada');
     const rawData = Object.fromEntries(formData.entries());
+    console.log('[ACTION] Dados recebidos do formulário:', rawData);
     
     const validatedFields = profileFormSchema.safeParse(rawData);
+    console.log('[ACTION] Resultado da validação:', JSON.stringify(validatedFields, null, 2));
     
     if (!validatedFields.success) {
         return {
@@ -204,7 +206,7 @@ export async function updateProfile(
         }
     }
     
-    const { uid, ...profileData } = validatedFields.data;
+    const { uid } = validatedFields.data;
 
     if (!uid) {
         return {
@@ -212,33 +214,14 @@ export async function updateProfile(
             success: false,
         }
     }
+
+    revalidatePath('/profile');
+    revalidatePath('/');
     
-    try {
-        const { firestore } = getFirestoreForServerAction();
-        const userProfileRef = doc(firestore, 'users', uid);
-        
-        const dataToSave: { [key: string]: any } = {};
-        for (const [key, value] of Object.entries(profileData)) {
-            if (value !== undefined) {
-                dataToSave[key] = value;
-            }
-        }
-        
-        await setDoc(userProfileRef, dataToSave, { merge: true });
-
-        revalidatePath('/profile');
-        revalidatePath('/');
-
-        return {
-            message: "Seu perfil foi atualizado com sucesso!",
-            success: true,
-        }
-    } catch (error: any) {
-        console.error("[ACTION] Erro ao atualizar perfil no Firestore:", error);
-        return {
-            message: "Ocorreu um erro ao atualizar seu perfil. Verifique as permissões do Firestore.",
-            success: false,
-        }
+    return {
+        message: "Validação bem-sucedida!",
+        success: true,
+        data: validatedFields.data
     }
 }
 

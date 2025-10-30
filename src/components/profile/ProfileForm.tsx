@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useTransition, useActionState, useMemo } from 'react';
+import { useEffect, useState, useRef, useActionState, useMemo, startTransition } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,7 +16,7 @@ import { Loader2, Save, Wand2, Check, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useDoc, setDocumentNonBlocking, addDocumentNonBlocking, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection, serverTimestamp, setDoc } from 'firebase/firestore';
-import { getGoalProjection, GoalProjectionState, updateProfile, UpdateProfileState } from '@/app/actions';
+import { getGoalProjection, GoalProjectionState, validateProfile, ValidateProfileState } from '@/app/actions';
 import type { UserProfile, UserAchievement } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
 
@@ -88,10 +88,20 @@ const initialProjectionState: GoalProjectionState = {
   errors: null,
 };
 
-const initialProfileState: UpdateProfileState = {
+const initialProfileState: ValidateProfileState = {
     message: '',
     success: false,
 };
+
+function ProfileSubmitButton() {
+    const { pending } = useFormStatus();
+    return (
+        <Button type="submit" disabled={pending} variant="secondary">
+            {pending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            Salvar Alterações
+        </Button>
+    )
+}
 
 function ProjectionSubmitButton() {
   const { pending } = useFormStatus();
@@ -126,7 +136,7 @@ export default function ProfileForm() {
     const weightFormRef = useRef<HTMLFormElement>(null);
     
     const [projectionState, projectionAction] = useActionState(getGoalProjection, initialProjectionState);
-    const [profileState, profileAction] = useActionState(updateProfile, initialProfileState);
+    const [profileState, profileAction] = useActionState(validateProfile, initialProfileState);
 
 
     const userProfileRef = useMemoFirebase(() => {
@@ -168,12 +178,25 @@ export default function ProfileForm() {
     const dailyCalorieGoal = form.watch('dailyCalorieGoal');
     
     useEffect(() => {
-        if (profileState.message) {
-            if (profileState.success) {
+        if (profileState.success && profileState.data) {
+            console.log('[CLIENT] Validação da Server Action bem sucedida. Salvando no Firestore...');
+            const { uid, ...profileData } = profileState.data;
+
+            const dataToSave: { [key: string]: any } = {};
+            for (const [key, value] of Object.entries(profileData)) {
+                if (value !== undefined) {
+                    dataToSave[key] = value;
+                }
+            }
+
+            if(userProfileRef){
+                setDocumentNonBlocking(userProfileRef, dataToSave, { merge: true });
+
                 toast({
                     title: "Sucesso!",
-                    description: profileState.message,
+                    description: "Seu perfil foi atualizado.",
                 });
+
                 if (userAchievementsRef) {
                     const hasFirstLogAchievement = userAchievements?.some(ach => ach.achievementId === 'first-log');
                     if (!hasFirstLogAchievement) {
@@ -188,15 +211,15 @@ export default function ProfileForm() {
                         });
                     }
                 }
-            } else {
-                toast({
-                    title: "Erro ao salvar",
-                    description: profileState.message,
-                    variant: "destructive",
-                });
             }
+        } else if (profileState.message && !profileState.success) {
+            toast({
+                title: "Erro ao salvar",
+                description: profileState.message,
+                variant: "destructive",
+            });
         }
-    }, [profileState, toast, userAchievementsRef, userAchievements]);
+    }, [profileState, toast, userAchievementsRef, userAchievements, firestore, userProfileRef]);
 
 
     useEffect(() => {
@@ -501,10 +524,7 @@ export default function ProfileForm() {
                         />
                     </CardContent>
                      <CardFooter className="flex justify-end p-4 border-t">
-                        <Button type="submit" disabled={isSubmitting} variant="secondary">
-                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                            Salvar Alterações
-                        </Button>
+                        <ProfileSubmitButton />
                     </CardFooter>
               </Card>
             </form>
