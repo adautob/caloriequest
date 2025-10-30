@@ -171,8 +171,7 @@ export default function ProfileForm() {
       }
     });
 
-    const watchedValues = form.watch();
-    console.log('[DEBUG] Valores atuais do formulário (watch):', watchedValues);
+    console.log('[DEBUG] Valores atuais do formulário (watch):', form.watch());
 
     useEffect(() => {
         if (userProfile) {
@@ -653,5 +652,3 @@ export default function ProfileForm() {
         </div>
     );
 }
-
-    
