@@ -1,8 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState, useRef, useTransition, useActionState } from 'react';
-import { useFormStatus } from 'react-dom';
-import { useForm } from 'react-hook-form';
+import { useEffect, useState, useRef, useTransition, useActionState } from 'react';
+import { useFormStatus, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -16,7 +15,7 @@ import { Loader2, Save, Wand2, Check, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useDoc, setDocumentNonBlocking, addDocumentNonBlocking, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection, serverTimestamp } from 'firebase/firestore';
-import { updateProfile, getGoalProjection } from '@/app/actions';
+import { getGoalProjection, updateProfile } from '@/app/actions';
 import type { UserProfile, UserAchievement } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
 
@@ -53,6 +52,13 @@ const initialProjectionState = {
   errors: null,
 };
 
+const initialProfileState = {
+    message: '',
+    errors: undefined,
+    success: false,
+};
+
+
 function ProjectionSubmitButton() {
   const { pending } = useFormStatus();
   return (
@@ -84,8 +90,7 @@ export default function ProfileForm() {
     const { user } = useUser();
     const firestore = useFirestore();
     const weightFormRef = useRef<HTMLFormElement>(null);
-    const [isPending, startTransition] = useTransition();
-    
+    const [profileState, profileAction] = useActionState(updateProfile, initialProfileState);
     const [projectionState, projectionAction] = useActionState(getGoalProjection, initialProjectionState);
 
     const userProfileRef = useMemoFirebase(() => {
@@ -117,15 +122,11 @@ export default function ProfileForm() {
       },
     });
 
-    const currentWeight = form.watch('currentWeight');
-    const height = form.watch('height');
-    const dailyCalorieGoal = form.watch('dailyCalorieGoal');
-
-    const [newWeight, setNewWeight] = useState<string>('');
     const [isEditingGoal, setIsEditingGoal] = useState(false);
     
-    const bmi = useMemo(() => calculateBmi(Number(currentWeight), Number(height)), [currentWeight, height]);
+    const bmi = calculateBmi(form.watch('currentWeight'), form.watch('height'));
     const bmiCategory = getBmiCategory(bmi);
+    const dailyCalorieGoal = form.watch('dailyCalorieGoal');
 
     useEffect(() => {
         if (userProfile) {
@@ -143,53 +144,34 @@ export default function ProfileForm() {
         }
     }, [userProfile, user, form]);
 
-    async function onSubmit(values: z.infer<typeof profileFormSchema>) {
-      startTransition(async () => {
-        if (!userProfileRef) return;
-        
-        // The data is validated by react-hook-form, so we can optimistically save it.
-        toast({
-          title: "Salvando...",
-          description: "Seu perfil está sendo atualizado.",
-        });
-
-        const dataToSave: Record<string, any> = {};
-
-        // Only include fields that have a defined value to prevent overwriting with undefined
-        (Object.keys(values) as Array<keyof typeof values>).forEach((key) => {
-            if (values[key] !== undefined) {
-                dataToSave[key] = values[key];
-            }
-        });
-        
-        // Explicitly handle empty optional string fields if they need to be saved
-        dataToSave.dietaryPreferences = values.dietaryPreferences || '';
-
-
-        setDocumentNonBlocking(userProfileRef, dataToSave, { merge: true });
-
-        // Show success toast immediately
-        toast({
-            title: "Sucesso!",
-            description: "Seu perfil foi atualizado.",
-        });
-
-        if (userAchievementsRef) {
-          const hasFirstLogAchievement = userAchievements?.some(ach => ach.achievementId === 'first-log');
-          if (!hasFirstLogAchievement) {
-            addDocumentNonBlocking(userAchievementsRef, {
-              achievementId: 'first-log',
-              dateEarned: serverTimestamp(),
-            });
+     useEffect(() => {
+        if (profileState.success) {
             toast({
-              title: "Conquista Desbloqueada!",
-              description: "Primeiro Registro: Você atualizou seu perfil pela primeira vez.",
-              className: "bg-accent text-accent-foreground border-accent"
+                title: "Sucesso!",
+                description: profileState.message,
             });
-          }
+            if (userAchievementsRef) {
+              const hasFirstLogAchievement = userAchievements?.some(ach => ach.achievementId === 'first-log');
+              if (!hasFirstLogAchievement) {
+                addDocumentNonBlocking(userAchievementsRef, {
+                  achievementId: 'first-log',
+                  dateEarned: serverTimestamp(),
+                });
+                toast({
+                  title: "Conquista Desbloqueada!",
+                  description: "Primeiro Registro: Você atualizou seu perfil pela primeira vez.",
+                  className: "bg-accent text-accent-foreground border-accent"
+                });
+              }
+            }
+        } else if (profileState.message && !profileState.success) {
+            toast({
+                title: "Erro ao salvar",
+                description: profileState.message,
+                variant: "destructive",
+            });
         }
-      });
-    }
+    }, [profileState, toast, userAchievementsRef, userAchievements]);
 
     useEffect(() => {
         if (projectionState.message && (projectionState.errors || (!projectionState.data && !projectionState.errors))) {
@@ -221,7 +203,8 @@ export default function ProfileForm() {
 
     const handleAddWeightMeasurement = (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
-        const weightValue = parseFloat(newWeight);
+        const weightValue = parseFloat((e.currentTarget.elements.namedItem('newWeight') as HTMLInputElement).value);
+
         if (!user || !firestore || isNaN(weightValue) || weightValue <= 0) {
             toast({
                 title: "Valor Inválido",
@@ -259,10 +242,9 @@ export default function ProfileForm() {
 
         toast({
             title: "Peso Registrado!",
-            description: `Seu peso de ${weightValue} kg foi salvo.`,
+            description: `Seu novo peso de ${weightValue} kg foi salvo.`,
         });
 
-        setNewWeight('');
         weightFormRef.current?.reset();
     };
 
@@ -321,7 +303,7 @@ export default function ProfileForm() {
     return (
         <div className="space-y-6">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)}>
+            <form action={profileAction} onSubmit={form.handleSubmit(() => profileAction(new FormData(form.control.fields._f.current.form)))}>
               <Card>
                     <CardHeader>
                         <CardTitle className="font-headline">Meu Perfil</CardTitle>
@@ -488,8 +470,8 @@ export default function ProfileForm() {
                         />
                     </CardContent>
                      <CardFooter className="flex justify-end p-4 border-t">
-                        <Button type="submit" disabled={isPending} variant="secondary">
-                            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        <Button type="submit" disabled={form.formState.isSubmitting} variant="secondary">
+                            {form.formState.isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                             Salvar Alterações
                         </Button>
                     </CardFooter>
@@ -499,7 +481,7 @@ export default function ProfileForm() {
 
             <Card>
                 <form action={projectionAction}>
-                    {/* Pass all form values as hidden inputs for the projection action */}
+                    {/* Pass all form values from react-hook-form's state */}
                     <input type="hidden" name="currentWeight" value={form.getValues('currentWeight') || ''} />
                     <input type="hidden" name="height" value={form.getValues('height') || ''} />
                     <input type="hidden" name="weightGoal" value={form.getValues('weightGoal') || ''} />
@@ -590,8 +572,6 @@ export default function ProfileForm() {
                                 type="number"
                                 step="0.1"
                                 placeholder="Ex: 84.5"
-                                value={newWeight}
-                                onChange={(e) => setNewWeight(e.target.value)}
                                 required
                             />
                         </div>

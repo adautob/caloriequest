@@ -4,6 +4,9 @@ import { projectWeightLossTimeline, ProjectWeightLossTimelineInput } from "@/ai/
 import { logMeal, LogMealOutput } from '@/ai/flows/log-meal';
 import { getDailyTip, GetDailyTipInput } from "@/ai/flows/get-daily-tip";
 import { z } from "zod";
+import { getFirebase } from "@/firebase/server-provider";
+import { doc, setDoc } from "firebase/firestore";
+import { revalidatePath } from "next/cache";
 
 // --- Goal Projection Action ---
 
@@ -152,23 +155,79 @@ export type UpdateProfileState = {
     success: boolean;
 }
 
-// This is an example of how you would define the schema.
-// We are moving it to the component itself to avoid the "use server" error.
-// export const profileFormSchema = z.object({ ... });
+const updateProfileFormSchema = z.object({
+    name: z.string().min(2, { message: "O nome deve ter pelo menos 2 caracteres." }),
+    currentWeight: z.preprocess(
+        (val) => (val === '' ? undefined : val),
+        z.coerce.number({invalid_type_error: "Peso inválido"}).optional()
+    ),
+    height: z.preprocess(
+        (val) => (val === '' ? undefined : val),
+        z.coerce.number({invalid_type_error: "Altura inválida"}).optional()
+    ),
+    weightGoal: z.preprocess(
+        (val) => (val === '' ? undefined : val),
+        z.coerce.number({invalid_type_error: "Meta de peso inválida"}).optional()
+    ),
+    age: z.preprocess(
+        (val) => (val === '' ? undefined : val),
+        z.coerce.number({invalid_type_error: "Idade inválida"}).optional()
+    ),
+    gender: z.string().optional(),
+    activityLevel: z.string().optional(),
+    dietaryPreferences: z.string().optional(),
+    dailyCalorieGoal: z.preprocess(
+        (val) => (val === '' ? undefined : val),
+        z.coerce.number({invalid_type_error: "Meta de calorias inválida"}).optional()
+    ),
+});
 
 
 export async function updateProfile(
-    validatedData: Record<string, any>
+    prevState: UpdateProfileState,
+    formData: FormData,
 ): Promise<UpdateProfileState> {
     
-     // The data is already validated by the form component.
-     // We can proceed to use it.
- 
-     return {
-         message: "Dados validados com sucesso! O perfil será atualizado.",
-         errors: undefined,
-         success: true,
-     }
+    const { auth } = getFirebase();
+    const user = auth.currentUser;
+
+    if (!user) {
+        return {
+            message: "Você precisa estar logado para atualizar o perfil.",
+            success: false,
+        }
+    }
+
+    const validatedFields = updateProfileFormSchema.safeParse(Object.fromEntries(formData.entries()));
+    
+    if (!validatedFields.success) {
+        return {
+            message: "Dados inválidos.",
+            errors: validatedFields.error.errors,
+            success: false,
+        }
+    }
+
+    try {
+        const { firestore } = getFirebase();
+        const userProfileRef = doc(firestore, 'users', user.uid);
+        
+        await setDoc(userProfileRef, validatedFields.data, { merge: true });
+
+        revalidatePath('/profile');
+        revalidatePath('/');
+
+        return {
+            message: "Seu perfil foi atualizado com sucesso!",
+            success: true,
+        }
+    } catch (error) {
+        console.error("Error updating profile:", error);
+        return {
+            message: "Ocorreu um erro ao atualizar seu perfil.",
+            success: false,
+        }
+    }
 }
 
 // --- Get Daily Tip Action ---
