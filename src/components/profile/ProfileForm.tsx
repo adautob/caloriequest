@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useTransition, useActionState } from 'react';
+import { useEffect, useState, useRef, useTransition, useActionState, useMemo } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,7 +16,7 @@ import { Loader2, Save, Wand2, Check, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useDoc, setDocumentNonBlocking, addDocumentNonBlocking, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection, serverTimestamp, setDoc } from 'firebase/firestore';
-import { getGoalProjection, GoalProjectionState } from '@/app/actions';
+import { getGoalProjection, GoalProjectionState, updateProfile, UpdateProfileState } from '@/app/actions';
 import type { UserProfile, UserAchievement } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
 
@@ -54,6 +54,7 @@ const goalProjectionFormSchema = z.object({
 
 
 const profileFormSchema = z.object({
+  uid: z.string(),
   name: z.string().min(2, { message: "O nome deve ter pelo menos 2 caracteres." }),
   currentWeight: z.preprocess(
     (val) => (val === '' || val === undefined ? undefined : val),
@@ -87,6 +88,10 @@ const initialProjectionState: GoalProjectionState = {
   errors: null,
 };
 
+const initialProfileState: UpdateProfileState = {
+    message: '',
+    success: false,
+};
 
 function ProjectionSubmitButton() {
   const { pending } = useFormStatus();
@@ -119,9 +124,10 @@ export default function ProfileForm() {
     const { user } = useUser();
     const firestore = useFirestore();
     const weightFormRef = useRef<HTMLFormElement>(null);
-    const [isPending, startTransition] = useTransition();
     
     const [projectionState, projectionAction] = useActionState(getGoalProjection, initialProjectionState);
+    const [profileState, profileAction] = useActionState(updateProfile, initialProfileState);
+
 
     const userProfileRef = useMemoFirebase(() => {
         if (!user || !firestore) return null;
@@ -137,19 +143,22 @@ export default function ProfileForm() {
 
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
+    const formValues = useMemo(() => ({
+        uid: user?.uid || '',
+        name: userProfile?.name || user?.displayName || '',
+        currentWeight: userProfile?.currentWeight,
+        height: userProfile?.height,
+        weightGoal: userProfile?.weightGoal,
+        dailyCalorieGoal: userProfile?.dailyCalorieGoal,
+        age: userProfile?.age,
+        gender: userProfile?.gender || '',
+        activityLevel: userProfile?.activityLevel || '',
+        dietaryPreferences: userProfile?.dietaryPreferences || '',
+    }), [userProfile, user]);
+
     const form = useForm<z.infer<typeof profileFormSchema>>({
       resolver: zodResolver(profileFormSchema),
-      defaultValues: {
-        name: '',
-        currentWeight: undefined,
-        height: undefined,
-        weightGoal: undefined,
-        dailyCalorieGoal: undefined,
-        age: undefined,
-        gender: '',
-        activityLevel: '',
-        dietaryPreferences: '',
-      },
+      values: formValues, // Use values to keep form in sync with userProfile
     });
 
     const [isEditingGoal, setIsEditingGoal] = useState(false);
@@ -157,26 +166,37 @@ export default function ProfileForm() {
     const bmi = calculateBmi(form.watch('currentWeight'), form.watch('height'));
     const bmiCategory = getBmiCategory(bmi);
     const dailyCalorieGoal = form.watch('dailyCalorieGoal');
-
+    
     useEffect(() => {
-        if (userProfile) {
-            form.reset({
-                name: userProfile.name || user?.displayName || '',
-                currentWeight: userProfile.currentWeight,
-                height: userProfile.height,
-                weightGoal: userProfile.weightGoal,
-                dailyCalorieGoal: userProfile.dailyCalorieGoal,
-                age: userProfile.age,
-                gender: userProfile.gender || '',
-                activityLevel: userProfile.activityLevel || '',
-                dietaryPreferences: userProfile.dietaryPreferences || '',
-            });
-        } else if (user) {
-            form.reset({
-                name: user.displayName || '',
-            })
+        if (profileState.message) {
+            if (profileState.success) {
+                toast({
+                    title: "Sucesso!",
+                    description: profileState.message,
+                });
+                if (userAchievementsRef) {
+                    const hasFirstLogAchievement = userAchievements?.some(ach => ach.achievementId === 'first-log');
+                    if (!hasFirstLogAchievement) {
+                        addDocumentNonBlocking(userAchievementsRef, {
+                            achievementId: 'first-log',
+                            dateEarned: serverTimestamp(),
+                        });
+                        toast({
+                            title: "Conquista Desbloqueada!",
+                            description: "Primeiro Registro: Você atualizou seu perfil pela primeira vez.",
+                            className: "bg-accent text-accent-foreground border-accent"
+                        });
+                    }
+                }
+            } else {
+                toast({
+                    title: "Erro ao salvar",
+                    description: profileState.message,
+                    variant: "destructive",
+                });
+            }
         }
-    }, [userProfile, user, form]);
+    }, [profileState, toast, userAchievementsRef, userAchievements]);
 
 
     useEffect(() => {
@@ -307,48 +327,13 @@ export default function ProfileForm() {
         );
     }
     
-    const onProfileSubmit = async (data: z.infer<typeof profileFormSchema>) => {
-      startTransition(async () => {
-        if (!userProfileRef) {
-          toast({ title: "Erro", description: "Usuário não encontrado.", variant: "destructive" });
-          return;
-        }
-        
-        try {
-          await setDoc(userProfileRef, data, { merge: true });
-
-          toast({
-            title: "Sucesso!",
-            description: "Seu perfil foi atualizado.",
-          });
-          
-          if (userAchievementsRef) {
-            const hasFirstLogAchievement = userAchievements?.some(ach => ach.achievementId === 'first-log');
-            if (!hasFirstLogAchievement) {
-              addDocumentNonBlocking(userAchievementsRef, {
-                achievementId: 'first-log',
-                dateEarned: serverTimestamp(),
-              });
-              toast({
-                title: "Conquista Desbloqueada!",
-                description: "Primeiro Registro: Você atualizou seu perfil pela primeira vez.",
-                className: "bg-accent text-accent-foreground border-accent"
-              });
-            }
-          }
-
-        } catch (error) {
-          console.error("Erro ao salvar perfil:", error);
-          toast({ title: "Erro ao salvar", description: "Não foi possível atualizar seu perfil. Tente novamente.", variant: "destructive" });
-        }
-      });
-    };
+    const { formState: { isSubmitting } } = form;
 
 
     return (
         <div className="space-y-6">
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onProfileSubmit)}>
+            <form action={profileAction}>
               <Card>
                     <CardHeader>
                         <CardTitle className="font-headline">Meu Perfil</CardTitle>
@@ -357,6 +342,7 @@ export default function ProfileForm() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
+                        <input type="hidden" {...form.register('uid')} />
                         <FormField
                           control={form.control}
                           name="name"
@@ -379,7 +365,7 @@ export default function ProfileForm() {
                                 <FormItem>
                                   <FormLabel>Peso Atual (kg)</FormLabel>
                                   <FormControl>
-                                    <Input type="number" step="0.1" placeholder="85.5" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={field.value ?? ''} />
+                                    <Input type="number" step="0.1" placeholder="85.5" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value ?? ''} />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>
@@ -392,7 +378,7 @@ export default function ProfileForm() {
                                 <FormItem>
                                   <FormLabel>Altura (cm)</FormLabel>
                                   <FormControl>
-                                    <Input type="number" placeholder="175" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={field.value ?? ''} />
+                                    <Input type="number" placeholder="175" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value ?? ''} />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>
@@ -417,7 +403,7 @@ export default function ProfileForm() {
                                 <FormItem>
                                   <FormLabel>Meta de Peso (kg)</FormLabel>
                                   <FormControl>
-                                    <Input type="number" step="0.1" placeholder="75" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={field.value ?? ''} />
+                                    <Input type="number" step="0.1" placeholder="75" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value ?? ''} />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>
@@ -430,7 +416,7 @@ export default function ProfileForm() {
                                 <FormItem>
                                   <FormLabel>Meta Diária de Calorias (kcal)</FormLabel>
                                   <FormControl>
-                                    <Input type="number" step="10" placeholder="2200" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={field.value ?? ''} />
+                                    <Input type="number" step="10" placeholder="2200" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value ?? ''} />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>
@@ -446,7 +432,7 @@ export default function ProfileForm() {
                                 <FormItem>
                                   <FormLabel>Idade</FormLabel>
                                   <FormControl>
-                                    <Input type="number" placeholder="30" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={field.value ?? ''} />
+                                    <Input type="number" placeholder="30" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value ?? ''} />
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>
@@ -515,8 +501,8 @@ export default function ProfileForm() {
                         />
                     </CardContent>
                      <CardFooter className="flex justify-end p-4 border-t">
-                        <Button type="submit" disabled={isPending} variant="secondary">
-                            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        <Button type="submit" disabled={isSubmitting} variant="secondary">
+                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                             Salvar Alterações
                         </Button>
                     </CardFooter>
@@ -561,7 +547,7 @@ export default function ProfileForm() {
                                         <Input 
                                             type="number" 
                                             value={dailyCalorieGoal || ''}
-                                            onChange={(e) => form.setValue('dailyCalorieGoal', e.target.valueAsNumber)}
+                                            onChange={(e) => form.setValue('dailyCalorieGoal', e.target.value === '' ? undefined : e.target.valueAsNumber)}
                                             name="dailyCalorieGoal"
                                             className="max-w-[120px]"
                                         />
