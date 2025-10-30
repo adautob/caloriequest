@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Loader2, Save, Wand2, Check, Edit } from 'lucide-react';
@@ -440,22 +440,36 @@ export default function ProfileForm() {
                                 control={form.control}
                                 name="gender"
                                 render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Gênero</FormLabel>
-                                        <FormControl>
-                                            <Select onValueChange={field.onChange} value={field.value || ''}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Selecione..." />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="male">Masculino</SelectItem>
-                                                    <SelectItem value="female">Feminino</SelectItem>
-                                                    <SelectItem value="other">Outro</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
+                                <FormItem className="space-y-3">
+                                    <FormLabel>Gênero</FormLabel>
+                                    <FormControl>
+                                    <RadioGroup
+                                        onValueChange={field.onChange}
+                                        value={field.value}
+                                        className="flex flex-row space-x-4"
+                                    >
+                                        <FormItem className="flex items-center space-x-2 space-y-0">
+                                            <FormControl>
+                                                <RadioGroupItem value="male" />
+                                            </FormControl>
+                                            <FormLabel className="font-normal">Masculino</FormLabel>
+                                        </FormItem>
+                                        <FormItem className="flex items-center space-x-2 space-y-0">
+                                            <FormControl>
+                                                <RadioGroupItem value="female" />
+                                            </FormControl>
+                                            <FormLabel className="font-normal">Feminino</FormLabel>
+                                        </FormItem>
+                                        <FormItem className="flex items-center space-x-2 space-y-0">
+                                            <FormControl>
+                                                <RadioGroupItem value="other" />
+                                            </FormControl>
+                                            <FormLabel className="font-normal">Outro</FormLabel>
+                                        </FormItem>
+                                    </RadioGroup>
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
                                 )}
                              />
                         </div>
@@ -464,19 +478,35 @@ export default function ProfileForm() {
                             control={form.control}
                             name="activityLevel"
                             render={({ field }) => (
-                                <FormItem>
+                                <FormItem className="space-y-3">
                                     <FormLabel>Nível de Atividade</FormLabel>
-                                     <FormControl>
-                                        <Select onValueChange={field.onChange} value={field.value || ''}>
-                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="sedentary">Sedentário</SelectItem>
-                                                <SelectItem value="lightly active">Levemente Ativo</SelectItem>
-                                                <SelectItem value="moderately active">Moderadamente Ativo</SelectItem>
-                                                <SelectItem value="very active">Muito Ativo</SelectItem>
-                                                <SelectItem value="extra active">Extremamente Ativo</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                    <FormControl>
+                                        <RadioGroup
+                                            onValueChange={field.onChange}
+                                            value={field.value}
+                                            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4"
+                                        >
+                                            <FormItem className="flex items-center space-x-2 space-y-0">
+                                                <FormControl><RadioGroupItem value="sedentary" /></FormControl>
+                                                <FormLabel className="font-normal">Sedentário</FormLabel>
+                                            </FormItem>
+                                            <FormItem className="flex items-center space-x-2 space-y-0">
+                                                <FormControl><RadioGroupItem value="lightly active" /></FormControl>
+                                                <FormLabel className="font-normal">Levemente Ativo</FormLabel>
+                                            </FormItem>
+                                            <FormItem className="flex items-center space-x-2 space-y-0">
+                                                <FormControl><RadioGroupItem value="moderately active" /></FormControl>
+                                                <FormLabel className="font-normal">Moderadamente Ativo</FormLabel>
+                                            </FormItem>
+                                            <FormItem className="flex items-center space-x-2 space-y-0">
+                                                <FormControl><RadioGroupItem value="very active" /></FormControl>
+                                                <FormLabel className="font-normal">Muito Ativo</FormLabel>
+                                            </FormItem>
+                                            <FormItem className="flex items-center space-x-2 space-y-0">
+                                                <FormControl><RadioGroupItem value="extra active" /></FormControl>
+                                                <FormLabel className="font-normal">Extremamente Ativo</FormLabel>
+                                            </FormItem>
+                                        </RadioGroup>
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
