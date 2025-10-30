@@ -20,41 +20,9 @@ import { getGoalProjection, GoalProjectionState, validateProfile, ValidateProfil
 import type { UserProfile, UserAchievement } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
 
-const goalProjectionFormSchema = z.object({
-  currentWeight: z.preprocess(
-    (val) => (val === '' ? undefined : val),
-    z.coerce.number({ required_error: 'Peso atual é obrigatório.' }).min(30, 'Peso deve ser no mínimo 30kg.')
-  ),
-  goalWeight: z.preprocess(
-    (val) => (val === '' ? undefined : val),
-    z.coerce.number({ required_error: 'Meta de peso é obrigatória.' }).min(30, 'Meta de peso deve ser no mínimo 30kg.')
-  ),
-  height: z.preprocess(
-    (val) => (val === '' ? undefined : val),
-    z.coerce.number({ required_error: 'Altura é obrigatória.' }).min(100, 'Altura deve ser no mínimo 100cm.')
-  ),
-  age: z.preprocess(
-    (val) => (val === '' ? undefined : val),
-    z.coerce.number({ required_error: 'Idade é obrigatória.' }).min(13, 'Você deve ter pelo menos 13 anos.')
-  ),
-  gender: z.string({ required_error: 'Gênero é obrigatório.' }).min(1, 'Gênero é obrigatório.'),
-  activityLevel: z.string({ required_error: 'Nível de atividade é obrigatório.' }).min(1, 'Nível de atividade é obrigatório.'),
-  goalTimelineWeeks: z.preprocess(
-    (val) => (val === '' ? undefined : val),
-    z.coerce.number({ required_error: 'O tempo para atingir a meta é obrigatório.' }).min(1, 'O tempo para atingir a meta deve ser de pelo menos 1 semana.')
-  ),
-  dietaryPreferences: z.string().optional(),
-}).refine(data => {
-    if (data.currentWeight === undefined || data.goalWeight === undefined) return true;
-    return data.currentWeight > data.goalWeight;
-}, {
-  message: "O peso atual deve ser maior que a meta de peso.",
-  path: ["goalWeight"],
-});
-
 
 const profileFormSchema = z.object({
-  uid: z.string(),
+  uid: z.string().min(1, { message: "UID do usuário é obrigatório." }),
   name: z.string().min(2, { message: "O nome deve ter pelo menos 2 caracteres." }),
   currentWeight: z.preprocess(
     (val) => (val === '' || val === undefined ? undefined : val),
@@ -150,8 +118,14 @@ export default function ProfileForm() {
       defaultValues: {
         uid: user?.uid || '',
         name: user?.displayName || '',
+        currentWeight: undefined,
+        height: undefined,
+        weightGoal: undefined,
+        dailyCalorieGoal: undefined,
+        age: undefined,
         gender: '',
         activityLevel: '',
+        dietaryPreferences: '',
       }
     });
 
@@ -161,7 +135,6 @@ export default function ProfileForm() {
     const bmiCategory = getBmiCategory(bmi);
     const dailyCalorieGoal = form.watch('dailyCalorieGoal');
 
-    // Effect to reset the form whenever the userProfile data is loaded from Firestore
     useEffect(() => {
         if (userProfile) {
             const formValues = {
@@ -178,28 +151,28 @@ export default function ProfileForm() {
             };
             form.reset(formValues);
         }
-    }, [userProfile, form]);
+    }, [userProfile, user, form]);
     
-    // Server action result handling
     useEffect(() => {
-        if (profileState.success && profileState.data && userProfileRef) {
+        if (profileState.success && profileState.data) {
             const { uid, ...profileData } = profileState.data;
 
-            const dataToSave: { [key: string]: any } = {};
-            for (const [key, value] of Object.entries(profileData)) {
-                if (value !== undefined) {
-                    dataToSave[key] = value;
+            if (userProfileRef) {
+                const dataToSave: { [key: string]: any } = {};
+                for (const [key, value] of Object.entries(profileData)) {
+                    if (value !== undefined) {
+                        dataToSave[key] = value;
+                    }
                 }
+                setDocumentNonBlocking(userProfileRef, dataToSave, { merge: true });
             }
-            
-            setDocumentNonBlocking(userProfileRef, dataToSave, { merge: true });
 
             toast({
                 title: "Sucesso!",
                 description: "Seu perfil foi atualizado.",
             });
 
-        } else if (profileState.message && !profileState.success) {
+        } else if (profileState.message && !profileState.success && profileState.errors) {
             toast({
                 title: "Erro ao salvar",
                 description: profileState.message,
@@ -469,16 +442,16 @@ export default function ProfileForm() {
                               render={({ field }) => (
                                 <FormItem>
                                   <FormLabel>Gênero</FormLabel>
-                                  <Select onValueChange={field.onChange} value={field.value || ''}>
                                     <FormControl>
-                                      <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="male">Masculino</SelectItem>
+                                                <SelectItem value="female">Feminino</SelectItem>
+                                                <SelectItem value="other">Outro</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                     </FormControl>
-                                    <SelectContent>
-                                      <SelectItem value="male">Masculino</SelectItem>
-                                      <SelectItem value="female">Feminino</SelectItem>
-                                      <SelectItem value="other">Outro</SelectItem>
-                                    </SelectContent>
-                                  </Select>
                                   <FormMessage />
                                 </FormItem>
                               )}
@@ -491,18 +464,18 @@ export default function ProfileForm() {
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Nível de Atividade</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value || ''}>
                                     <FormControl>
+                                        <Select onValueChange={field.onChange} value={field.value || ''}>
                                         <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="sedentary">Sedentário</SelectItem>
+                                            <SelectItem value="lightly active">Levemente Ativo</SelectItem>
+                                            <SelectItem value="moderately active">Moderadamente Ativo</SelectItem>
+                                            <SelectItem value="very active">Muito Ativo</SelectItem>
+                                            <SelectItem value="extra active">Extremamente Ativo</SelectItem>
+                                        </SelectContent>
+                                        </Select>
                                     </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="sedentary">Sedentário</SelectItem>
-                                        <SelectItem value="lightly active">Levemente Ativo</SelectItem>
-                                        <SelectItem value="moderately active">Moderadamente Ativo</SelectItem>
-                                        <SelectItem value="very active">Muito Ativo</SelectItem>
-                                        <SelectItem value="extra active">Extremamente Ativo</SelectItem>
-                                    </SelectContent>
-                                    </Select>
                                     <FormMessage />
                                 </FormItem>
                             )}
