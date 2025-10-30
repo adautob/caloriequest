@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useActionState } from 'react';
+import { useEffect, useState, useRef, useTransition, useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -92,6 +92,7 @@ export default function ProfileForm() {
     const { user } = useUser();
     const firestore = useFirestore();
     const weightFormRef = useRef<HTMLFormElement>(null);
+    const [isPending, startTransition] = useTransition();
     
     const [profileState, profileAction] = useActionState(updateProfile, initialProfileState);
     const [projectionState, projectionAction] = useActionState(getGoalProjection, initialProjectionState);
@@ -303,11 +304,23 @@ export default function ProfileForm() {
             </div>
         );
     }
+    
+    const onProfileSubmit = form.handleSubmit((data) => {
+        startTransition(() => {
+            const formData = new FormData();
+            Object.entries(data).forEach(([key, value]) => {
+                 if (value !== undefined && value !== null) {
+                    formData.append(key, String(value));
+                }
+            });
+            profileAction(formData);
+        });
+    });
 
     return (
         <div className="space-y-6">
           <Form {...form}>
-            <form action={profileAction} onSubmit={form.handleSubmit(profileAction)}>
+            <form onSubmit={onProfileSubmit}>
               <Card>
                     <CardHeader>
                         <CardTitle className="font-headline">Meu Perfil</CardTitle>
@@ -474,8 +487,8 @@ export default function ProfileForm() {
                         />
                     </CardContent>
                      <CardFooter className="flex justify-end p-4 border-t">
-                        <Button type="submit" disabled={form.formState.isSubmitting} variant="secondary">
-                            {form.formState.isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        <Button type="submit" disabled={isPending} variant="secondary">
+                            {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                             Salvar Alterações
                         </Button>
                     </CardFooter>
