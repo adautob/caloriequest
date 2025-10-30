@@ -21,6 +21,7 @@ import type { UserProfile, UserAchievement } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
 
 const profileFormSchema = z.object({
+  uid: z.string().min(1, { message: "UID do usuário é obrigatório." }),
   name: z.string().min(2, { message: "O nome deve ter pelo menos 2 caracteres." }),
   currentWeight: z.preprocess(
     (val) => (val === '' ? undefined : val),
@@ -45,6 +46,38 @@ const profileFormSchema = z.object({
     (val) => (val === '' ? undefined : val),
     z.coerce.number({invalid_type_error: "Meta de calorias inválida"}).optional()
   ),
+});
+
+const goalProjectionFormSchema = z.object({
+  currentWeight: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.coerce.number({ required_error: 'Peso atual é obrigatório.' }).min(30, 'Peso deve ser no mínimo 30kg.')
+  ),
+  goalWeight: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.coerce.number({ required_error: 'Meta de peso é obrigatória.' }).min(30, 'Meta de peso deve ser no mínimo 30kg.')
+  ),
+  height: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.coerce.number({ required_error: 'Altura é obrigatória.' }).min(100, 'Altura deve ser no mínimo 100cm.')
+  ),
+  age: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.coerce.number({ required_error: 'Idade é obrigatória.' }).min(13, 'Você deve ter pelo menos 13 anos.')
+  ),
+  gender: z.string({ required_error: 'Gênero é obrigatório.' }).min(1, 'Gênero é obrigatório.'),
+  activityLevel: z.string({ required_error: 'Nível de atividade é obrigatório.' }).min(1, 'Nível de atividade é obrigatório.'),
+  goalTimelineWeeks: z.preprocess(
+    (val) => (val === '' ? undefined : val),
+    z.coerce.number({ required_error: 'O tempo para atingir a meta é obrigatório.' }).min(1, 'O tempo para atingir a meta deve ser de pelo menos 1 semana.')
+  ),
+  dietaryPreferences: z.string().optional(),
+}).refine(data => {
+    if (data.currentWeight === undefined || data.goalWeight === undefined) return true;
+    return data.currentWeight > data.goalWeight;
+}, {
+  message: "O peso atual deve ser maior que a meta de peso.",
+  path: ["goalWeight"],
 });
 
 
@@ -94,8 +127,8 @@ export default function ProfileForm() {
     const weightFormRef = useRef<HTMLFormElement>(null);
     const [isPending, startTransition] = useTransition();
     
-    const [profileState, profileAction] = useActionState(updateProfile, initialProfileState);
-    const [projectionState, projectionAction] = useActionState(getGoalProjection, initialProjectionState);
+    const [profileState, profileAction] = useActionState(updateProfile.bind(null, profileFormSchema), initialProfileState);
+    const [projectionState, projectionAction] = useActionState(getGoalProjection.bind(null, goalProjectionFormSchema), initialProjectionState);
 
     const userProfileRef = useMemoFirebase(() => {
         if (!user || !firestore) return null;
@@ -135,6 +168,7 @@ export default function ProfileForm() {
     useEffect(() => {
         if (userProfile) {
             form.reset({
+                uid: user?.uid,
                 name: userProfile.name || user?.displayName || '',
                 currentWeight: userProfile.currentWeight,
                 height: userProfile.height,
@@ -145,6 +179,11 @@ export default function ProfileForm() {
                 activityLevel: userProfile.activityLevel || '',
                 dietaryPreferences: userProfile.dietaryPreferences || '',
             });
+        } else if (user) {
+            form.reset({
+                uid: user.uid,
+                name: user.displayName || '',
+            })
         }
     }, [userProfile, user, form]);
 
@@ -168,7 +207,7 @@ export default function ProfileForm() {
                 });
               }
             }
-        } else if (profileState.message && !profileState.success) {
+        } else if (profileState.message && !profileState.success && profileState.message !== '') {
             toast({
                 title: "Erro ao salvar",
                 description: profileState.message,
@@ -309,7 +348,7 @@ export default function ProfileForm() {
         startTransition(() => {
             const formData = new FormData();
             Object.entries(data).forEach(([key, value]) => {
-                 if (value !== undefined && value !== null) {
+                 if (value !== undefined && value !== null && value !== '') {
                     formData.append(key, String(value));
                 }
             });
@@ -329,6 +368,17 @@ export default function ProfileForm() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
+                         <FormField
+                          control={form.control}
+                          name="uid"
+                          render={({ field }) => (
+                            <FormItem>
+                               <FormControl>
+                                <Input type="hidden" {...field} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
                         <FormField
                           control={form.control}
                           name="name"
