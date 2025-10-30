@@ -152,6 +152,8 @@ export default function ProfileForm() {
     const { data: userAchievements } = useCollection<UserAchievement>(userAchievementsRef);
 
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
+    
+    console.log('[DEBUG] Dados brutos do Firestore (userProfile):', userProfile);
 
     const form = useForm<z.infer<typeof profileFormSchema>>({
       resolver: zodResolver(profileFormSchema),
@@ -169,6 +171,9 @@ export default function ProfileForm() {
       }
     });
 
+    const watchedValues = form.watch();
+    console.log('[DEBUG] Valores atuais do formulário (watch):', watchedValues);
+
     useEffect(() => {
         if (userProfile) {
             const formValues = {
@@ -183,6 +188,7 @@ export default function ProfileForm() {
                 activityLevel: userProfile.activityLevel || '',
                 dietaryPreferences: userProfile.dietaryPreferences || '',
             };
+            console.log('[DEBUG] useEffect: Chamando form.reset() com os valores:', formValues);
             form.reset(formValues);
         }
     }, [userProfile, user, form]);
@@ -195,7 +201,6 @@ export default function ProfileForm() {
     
     useEffect(() => {
         if (profileState.success && profileState.data && userProfileRef) {
-            console.log('[CLIENT] Validação da Server Action bem sucedida. Salvando no Firestore...');
             const { uid, ...profileData } = profileState.data;
 
             const dataToSave: { [key: string]: any } = {};
@@ -376,7 +381,7 @@ export default function ProfileForm() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
-                        <input type="hidden" {...form.register('uid')} />
+                        <input type="hidden" {...form.register('uid')} value={user?.uid || ''} />
                         <FormField
                           control={form.control}
                           name="name"
@@ -648,3 +653,5 @@ export default function ProfileForm() {
         </div>
     );
 }
+
+    
