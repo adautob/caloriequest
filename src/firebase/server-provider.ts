@@ -5,8 +5,9 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 import { firebaseConfig } from './config';
 
+// When credential is not set, Firebase Admin SDK will automatically look for
+// GOOGLE_APPLICATION_CREDENTIALS environment variable.
 const firebaseAdminConfig: FirebaseOptions = {
-    credential: undefined, // Let Firebase find the credential via env vars
     projectId: firebaseConfig.projectId,
 };
 
