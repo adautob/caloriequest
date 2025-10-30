@@ -87,11 +87,11 @@ export default function ProfileForm() {
       defaultValues: {
         uid: user?.uid || '',
         name: '',
-        currentWeight: undefined,
-        height: undefined,
-        weightGoal: undefined,
-        dailyCalorieGoal: undefined,
-        age: undefined,
+        currentWeight: undefined as number | undefined,
+        height: undefined as number | undefined,
+        weightGoal: undefined as number | undefined,
+        dailyCalorieGoal: undefined as number | undefined,
+        age: undefined as number | undefined,
         gender: '',
         activityLevel: '',
         dietaryPreferences: '',
@@ -419,7 +419,7 @@ export default function ProfileForm() {
                               render={({ field }) => (
                                 <FormItem>
                                   <FormLabel>Gênero</FormLabel>
-                                  <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                                  <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
                                       <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                                     </FormControl>
@@ -441,7 +441,7 @@ export default function ProfileForm() {
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Nível de Atividade</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value} defaultValue={field.value}>
+                                    <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
                                         <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                                     </FormControl>
