@@ -153,23 +153,39 @@ export default function ProfileForm() {
 
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
-    const formValues = useMemo(() => ({
-        uid: user?.uid || '',
-        name: userProfile?.name || user?.displayName || '',
-        currentWeight: userProfile?.currentWeight,
-        height: userProfile?.height,
-        weightGoal: userProfile?.weightGoal,
-        dailyCalorieGoal: userProfile?.dailyCalorieGoal,
-        age: userProfile?.age,
-        gender: userProfile?.gender || '',
-        activityLevel: userProfile?.activityLevel || '',
-        dietaryPreferences: userProfile?.dietaryPreferences || '',
-    }), [userProfile, user]);
-
     const form = useForm<z.infer<typeof profileFormSchema>>({
       resolver: zodResolver(profileFormSchema),
-      values: formValues, // Use values to keep form in sync with userProfile
+      defaultValues: {
+          uid: user?.uid || '',
+          name: user?.displayName || '',
+          currentWeight: undefined,
+          height: undefined,
+          weightGoal: undefined,
+          dailyCalorieGoal: undefined,
+          age: undefined,
+          gender: '',
+          activityLevel: '',
+          dietaryPreferences: '',
+      }
     });
+
+    useEffect(() => {
+        if (userProfile) {
+            const formValues = {
+                uid: user?.uid || '',
+                name: userProfile.name || user?.displayName || '',
+                currentWeight: userProfile.currentWeight,
+                height: userProfile.height,
+                weightGoal: userProfile.weightGoal,
+                dailyCalorieGoal: userProfile.dailyCalorieGoal,
+                age: userProfile.age,
+                gender: userProfile.gender || '',
+                activityLevel: userProfile.activityLevel || '',
+                dietaryPreferences: userProfile.dietaryPreferences || '',
+            };
+            form.reset(formValues);
+        }
+    }, [userProfile, user, form]);
 
     const [isEditingGoal, setIsEditingGoal] = useState(false);
     
@@ -178,7 +194,7 @@ export default function ProfileForm() {
     const dailyCalorieGoal = form.watch('dailyCalorieGoal');
     
     useEffect(() => {
-        if (profileState.success && profileState.data) {
+        if (profileState.success && profileState.data && userProfileRef) {
             console.log('[CLIENT] Validação da Server Action bem sucedida. Salvando no Firestore...');
             const { uid, ...profileData } = profileState.data;
 
@@ -189,27 +205,25 @@ export default function ProfileForm() {
                 }
             }
 
-            if(userProfileRef){
-                setDocumentNonBlocking(userProfileRef, dataToSave, { merge: true });
+            setDocumentNonBlocking(userProfileRef, dataToSave, { merge: true });
 
-                toast({
-                    title: "Sucesso!",
-                    description: "Seu perfil foi atualizado.",
-                });
+            toast({
+                title: "Sucesso!",
+                description: "Seu perfil foi atualizado.",
+            });
 
-                if (userAchievementsRef) {
-                    const hasFirstLogAchievement = userAchievements?.some(ach => ach.achievementId === 'first-log');
-                    if (!hasFirstLogAchievement) {
-                        addDocumentNonBlocking(userAchievementsRef, {
-                            achievementId: 'first-log',
-                            dateEarned: serverTimestamp(),
-                        });
-                        toast({
-                            title: "Conquista Desbloqueada!",
-                            description: "Primeiro Registro: Você atualizou seu perfil pela primeira vez.",
-                            className: "bg-accent text-accent-foreground border-accent"
-                        });
-                    }
+            if (userAchievementsRef) {
+                const hasFirstLogAchievement = userAchievements?.some(ach => ach.achievementId === 'first-log');
+                if (!hasFirstLogAchievement) {
+                    addDocumentNonBlocking(userAchievementsRef, {
+                        achievementId: 'first-log',
+                        dateEarned: serverTimestamp(),
+                    });
+                    toast({
+                        title: "Conquista Desbloqueada!",
+                        description: "Primeiro Registro: Você atualizou seu perfil pela primeira vez.",
+                        className: "bg-accent text-accent-foreground border-accent"
+                    });
                 }
             }
         } else if (profileState.message && !profileState.success) {
@@ -219,7 +233,7 @@ export default function ProfileForm() {
                 variant: "destructive",
             });
         }
-    }, [profileState, toast, userAchievementsRef, userAchievements, firestore, userProfileRef]);
+    }, [profileState, toast, userAchievementsRef, userAchievements, userProfileRef]);
 
 
     useEffect(() => {
@@ -464,8 +478,7 @@ export default function ProfileForm() {
                               render={({ field }) => (
                                 <FormItem>
                                   <FormLabel>Gênero</FormLabel>
-                                  {/* Hidden input to ensure value is submitted with form */}
-                                  <input type="hidden" {...field} />
+                                  <input type="hidden" {...form.register('gender')} />
                                   <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
                                       <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
@@ -488,8 +501,7 @@ export default function ProfileForm() {
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Nível de Atividade</FormLabel>
-                                     {/* Hidden input to ensure value is submitted with form */}
-                                    <input type="hidden" {...field} />
+                                    <input type="hidden" {...form.register('activityLevel')} />
                                     <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
                                         <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
