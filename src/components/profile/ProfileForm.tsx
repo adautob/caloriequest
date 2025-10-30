@@ -106,7 +106,6 @@ export default function ProfileForm() {
 
     useEffect(() => {
         if (userProfile) {
-            console.log('[FORM] Perfil carregado do Firestore, atualizando formulário:', userProfile);
             form.reset({
                 uid: user?.uid,
                 name: userProfile.name || user?.displayName || '',
@@ -120,7 +119,6 @@ export default function ProfileForm() {
                 dietaryPreferences: userProfile.dietaryPreferences || '',
             });
         } else if (user) {
-            console.log('[FORM] Usando dados iniciais do usuário autenticado.');
             form.reset({
                 uid: user.uid,
                 name: user.displayName || '',
@@ -129,7 +127,6 @@ export default function ProfileForm() {
     }, [userProfile, user, form]);
 
      useEffect(() => {
-        console.log('[FORM] Estado do profileState mudou:', profileState);
         if (profileState.success) {
             toast({
                 title: "Sucesso!",
@@ -287,7 +284,6 @@ export default function ProfileForm() {
     }
     
     const onProfileSubmit = form.handleSubmit((data) => {
-        console.log('[FORM] Submetendo o formulário com os dados:', data);
         const formData = new FormData();
         Object.entries(data).forEach(([key, value]) => {
              if (value !== undefined && value !== null && value !== '') {

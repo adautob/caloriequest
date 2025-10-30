@@ -4,7 +4,7 @@ import { projectWeightLossTimeline, ProjectWeightLossTimelineInput } from "@/ai/
 import { logMeal, LogMealOutput } from '@/ai/flows/log-meal';
 import { getDailyTip, GetDailyTipInput } from "@/ai/flows/get-daily-tip";
 import { z } from "zod";
-import { initializeFirebase } from "@/firebase/index";
+import { getFirestoreForServerAction } from "@/firebase/server-actions";
 import { doc, setDoc } from "firebase/firestore";
 import { revalidatePath } from "next/cache";
 
@@ -189,15 +189,11 @@ export async function updateProfile(
     prevState: UpdateProfileState,
     formData: FormData,
 ): Promise<UpdateProfileState> {
-    console.log('--- [ACTION] updateProfile iniciada ---');
     const rawData = Object.fromEntries(formData.entries());
-    console.log('[ACTION] Dados recebidos do formulário:', rawData);
     
     const validatedFields = profileFormSchema.safeParse(rawData);
-    console.log('[ACTION] Resultado da validação:', JSON.stringify(validatedFields, null, 2));
     
     if (!validatedFields.success) {
-        console.error('[ACTION] Falha na validação:', validatedFields.error.flatten());
         return {
             message: "Dados inválidos.",
             errors: validatedFields.error.errors,
@@ -208,18 +204,14 @@ export async function updateProfile(
     const { uid, ...profileData } = validatedFields.data;
 
     if (!uid) {
-        console.error('[ACTION] Erro: UID do usuário está faltando.');
         return {
             message: "Você precisa estar logado para atualizar o perfil.",
             success: false,
         }
     }
 
-    console.log(`[ACTION] Preparando para salvar dados para o UID: ${uid}`);
-
     try {
-        console.log('[ACTION] Inicializando Firebase...');
-        const { firestore } = initializeFirebase();
+        const { firestore } = getFirestoreForServerAction();
         const userProfileRef = doc(firestore, 'users', uid);
         
         const dataToSave: { [key: string]: any } = {};
@@ -228,11 +220,8 @@ export async function updateProfile(
                 dataToSave[key] = value;
             }
         }
-        console.log('[ACTION] Objeto a ser salvo no Firestore:', dataToSave);
 
-        console.log('[ACTION] Tentando executar setDoc...');
         await setDoc(userProfileRef, dataToSave, { merge: true });
-        console.log('[ACTION] setDoc executado com sucesso.');
 
         revalidatePath('/profile');
         revalidatePath('/');
