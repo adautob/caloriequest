@@ -191,12 +191,8 @@ export async function validateProfile(
     formData: FormData,
 ): Promise<ValidateProfileState> {
     
-    console.log('[ACTION] validateProfile iniciada');
     const rawData = Object.fromEntries(formData.entries());
-    console.log('[ACTION] Dados recebidos do formulário:', rawData);
-    
     const validatedFields = profileFormSchema.safeParse(rawData);
-    console.log('[ACTION] Resultado da validação:', JSON.stringify(validatedFields, null, 2));
     
     if (!validatedFields.success) {
         return {

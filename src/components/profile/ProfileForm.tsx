@@ -135,40 +135,24 @@ export default function ProfileForm() {
     const firestore = useFirestore();
     const weightFormRef = useRef<HTMLFormElement>(null);
     
-    const [projectionState, projectionAction] = useActionState(getGoalProjection, initialProjectionState);
     const [profileState, profileAction] = useActionState(validateProfile, initialProfileState);
-
-
+    const [projectionState, projectionAction] = useActionState(getGoalProjection, initialProjectionState);
+    
     const userProfileRef = useMemoFirebase(() => {
         if (!user || !firestore) return null;
         return doc(firestore, `users/${user.uid}`);
     }, [user, firestore]);
     
-    const userAchievementsRef = useMemoFirebase(() => {
-        if (!user || !firestore) return null;
-        return collection(firestore, `users/${user.uid}/userAchievements`);
-    }, [user, firestore]);
-    
-    const { data: userAchievements } = useCollection<UserAchievement>(userAchievementsRef);
-
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
-    
-    const defaultValues = useMemo(() => ({
-        uid: user?.uid || '',
-        name: userProfile?.name || user?.displayName || '',
-        currentWeight: userProfile?.currentWeight,
-        height: userProfile?.height,
-        weightGoal: userProfile?.weightGoal,
-        dailyCalorieGoal: userProfile?.dailyCalorieGoal,
-        age: userProfile?.age,
-        gender: userProfile?.gender || '',
-        activityLevel: userProfile?.activityLevel || '',
-        dietaryPreferences: userProfile?.dietaryPreferences || '',
-    }), [user, userProfile]);
 
     const form = useForm<z.infer<typeof profileFormSchema>>({
       resolver: zodResolver(profileFormSchema),
-      defaultValues: defaultValues
+      defaultValues: {
+        uid: user?.uid || '',
+        name: user?.displayName || '',
+        gender: '',
+        activityLevel: '',
+      }
     });
 
     const [isEditingGoal, setIsEditingGoal] = useState(false);
@@ -176,7 +160,27 @@ export default function ProfileForm() {
     const bmi = calculateBmi(form.watch('currentWeight'), form.watch('height'));
     const bmiCategory = getBmiCategory(bmi);
     const dailyCalorieGoal = form.watch('dailyCalorieGoal');
+
+    // Effect to reset the form whenever the userProfile data is loaded from Firestore
+    useEffect(() => {
+        if (userProfile) {
+            const formValues = {
+                uid: user?.uid || '',
+                name: userProfile.name || user?.displayName || '',
+                currentWeight: userProfile.currentWeight,
+                height: userProfile.height,
+                weightGoal: userProfile.weightGoal,
+                dailyCalorieGoal: userProfile.dailyCalorieGoal,
+                age: userProfile.age,
+                gender: userProfile.gender || '',
+                activityLevel: userProfile.activityLevel || '',
+                dietaryPreferences: userProfile.dietaryPreferences || '',
+            };
+            form.reset(formValues);
+        }
+    }, [userProfile, form]);
     
+    // Server action result handling
     useEffect(() => {
         if (profileState.success && profileState.data && userProfileRef) {
             const { uid, ...profileData } = profileState.data;
@@ -187,7 +191,7 @@ export default function ProfileForm() {
                     dataToSave[key] = value;
                 }
             }
-
+            
             setDocumentNonBlocking(userProfileRef, dataToSave, { merge: true });
 
             toast({
@@ -195,20 +199,6 @@ export default function ProfileForm() {
                 description: "Seu perfil foi atualizado.",
             });
 
-            if (userAchievementsRef) {
-                const hasFirstLogAchievement = userAchievements?.some(ach => ach.achievementId === 'first-log');
-                if (!hasFirstLogAchievement) {
-                    addDocumentNonBlocking(userAchievementsRef, {
-                        achievementId: 'first-log',
-                        dateEarned: serverTimestamp(),
-                    });
-                    toast({
-                        title: "Conquista Desbloqueada!",
-                        description: "Primeiro Registro: Você atualizou seu perfil pela primeira vez.",
-                        className: "bg-accent text-accent-foreground border-accent"
-                    });
-                }
-            }
         } else if (profileState.message && !profileState.success) {
             toast({
                 title: "Erro ao salvar",
@@ -216,7 +206,15 @@ export default function ProfileForm() {
                 variant: "destructive",
             });
         }
-    }, [profileState, toast, userAchievementsRef, userAchievements, userProfileRef]);
+    }, [profileState, toast, userProfileRef]);
+
+
+    const userAchievementsRef = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return collection(firestore, `users/${user.uid}/userAchievements`);
+    }, [user, firestore]);
+    
+    const { data: userAchievements } = useCollection<UserAchievement>(userAchievementsRef);
 
 
     useEffect(() => {
@@ -350,8 +348,7 @@ export default function ProfileForm() {
     return (
         <div className="space-y-6">
           <Form {...form}>
-            {/* The key prop forces a re-render when userProfile data changes, re-initializing the form */}
-            <form action={profileAction} key={JSON.stringify(defaultValues)}>
+            <form action={profileAction}>
               <Card>
                     <CardHeader>
                         <CardTitle className="font-headline">Meu Perfil</CardTitle>
