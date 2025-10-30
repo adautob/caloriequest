@@ -153,44 +153,23 @@ export default function ProfileForm() {
 
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
     
-    console.log('[DEBUG] Dados brutos do Firestore (userProfile):', userProfile);
+    const defaultValues = useMemo(() => ({
+        uid: user?.uid || '',
+        name: userProfile?.name || user?.displayName || '',
+        currentWeight: userProfile?.currentWeight,
+        height: userProfile?.height,
+        weightGoal: userProfile?.weightGoal,
+        dailyCalorieGoal: userProfile?.dailyCalorieGoal,
+        age: userProfile?.age,
+        gender: userProfile?.gender || '',
+        activityLevel: userProfile?.activityLevel || '',
+        dietaryPreferences: userProfile?.dietaryPreferences || '',
+    }), [user, userProfile]);
 
     const form = useForm<z.infer<typeof profileFormSchema>>({
       resolver: zodResolver(profileFormSchema),
-      defaultValues: {
-          uid: user?.uid || '',
-          name: user?.displayName || '',
-          currentWeight: undefined,
-          height: undefined,
-          weightGoal: undefined,
-          dailyCalorieGoal: undefined,
-          age: undefined,
-          gender: '',
-          activityLevel: '',
-          dietaryPreferences: '',
-      }
+      defaultValues: defaultValues
     });
-
-    console.log('[DEBUG] Valores atuais do formulário (watch):', form.watch());
-
-    useEffect(() => {
-        if (userProfile) {
-            const formValues = {
-                uid: user?.uid || '',
-                name: userProfile.name || user?.displayName || '',
-                currentWeight: userProfile.currentWeight,
-                height: userProfile.height,
-                weightGoal: userProfile.weightGoal,
-                dailyCalorieGoal: userProfile.dailyCalorieGoal,
-                age: userProfile.age,
-                gender: userProfile.gender || '',
-                activityLevel: userProfile.activityLevel || '',
-                dietaryPreferences: userProfile.dietaryPreferences || '',
-            };
-            console.log('[DEBUG] useEffect: Chamando form.reset() com os valores:', formValues);
-            form.reset(formValues);
-        }
-    }, [userProfile, user, form.reset]);
 
     const [isEditingGoal, setIsEditingGoal] = useState(false);
     
@@ -371,7 +350,8 @@ export default function ProfileForm() {
     return (
         <div className="space-y-6">
           <Form {...form}>
-            <form action={profileAction}>
+            {/* The key prop forces a re-render when userProfile data changes, re-initializing the form */}
+            <form action={profileAction} key={JSON.stringify(defaultValues)}>
               <Card>
                     <CardHeader>
                         <CardTitle className="font-headline">Meu Perfil</CardTitle>
