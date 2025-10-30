@@ -151,7 +151,7 @@ export default function ProfileForm() {
             };
             form.reset(formValues);
         }
-    }, [userProfile, user, form]);
+    }, [userProfile, form]);
     
     useEffect(() => {
         if (profileState.success && profileState.data) {
@@ -441,18 +441,20 @@ export default function ProfileForm() {
                                 name="gender"
                                 render={({ field }) => (
                                     <FormItem>
-                                    <FormLabel>Gênero</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                        <FormLabel>Gênero</FormLabel>
                                         <FormControl>
-                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                            <Select onValueChange={field.onChange} value={field.value || ''}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Selecione..." />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="male">Masculino</SelectItem>
+                                                    <SelectItem value="female">Feminino</SelectItem>
+                                                    <SelectItem value="other">Outro</SelectItem>
+                                                </SelectContent>
+                                            </Select>
                                         </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="male">Masculino</SelectItem>
-                                            <SelectItem value="female">Feminino</SelectItem>
-                                            <SelectItem value="other">Outro</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
+                                        <FormMessage />
                                     </FormItem>
                                 )}
                              />
@@ -464,18 +466,18 @@ export default function ProfileForm() {
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Nível de Atividade</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                     <FormControl>
+                                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                                            <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="sedentary">Sedentário</SelectItem>
+                                                <SelectItem value="lightly active">Levemente Ativo</SelectItem>
+                                                <SelectItem value="moderately active">Moderadamente Ativo</SelectItem>
+                                                <SelectItem value="very active">Muito Ativo</SelectItem>
+                                                <SelectItem value="extra active">Extremamente Ativo</SelectItem>
+                                            </SelectContent>
+                                        </Select>
                                     </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="sedentary">Sedentário</SelectItem>
-                                        <SelectItem value="lightly active">Levemente Ativo</SelectItem>
-                                        <SelectItem value="moderately active">Moderadamente Ativo</SelectItem>
-                                        <SelectItem value="very active">Muito Ativo</SelectItem>
-                                        <SelectItem value="extra active">Extremamente Ativo</SelectItem>
-                                    </SelectContent>
-                                    </Select>
                                     <FormMessage />
                                 </FormItem>
                             )}
