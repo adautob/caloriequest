@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, useRef, useActionState } from 'react';
-import { useForm } from 'react-hook-form';
 import { useFormStatus } from 'react-dom';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -177,10 +177,11 @@ export default function ProfileForm() {
     }, [profileState, toast, userAchievementsRef, userAchievements]);
 
     useEffect(() => {
-        if (projectionState.message && (projectionState.errors || (!projectionState.data && !projectionState.errors))) {
+        const errorMsg = projectionState.message;
+        if (errorMsg && (projectionState.errors || (!projectionState.data && !projectionState.errors))) {
             toast({
                 title: "Erro na Projeção",
-                description: projectionState.message,
+                description: errorMsg,
                 variant: "destructive",
             });
         }
@@ -306,7 +307,7 @@ export default function ProfileForm() {
     return (
         <div className="space-y-6">
           <Form {...form}>
-            <form action={profileAction} onSubmit={form.handleSubmit(() => profileAction(new FormData(form.control.fields._f.current.form)))}>
+            <form action={profileAction} onSubmit={form.handleSubmit(profileAction)}>
               <Card>
                     <CardHeader>
                         <CardTitle className="font-headline">Meu Perfil</CardTitle>
@@ -485,13 +486,13 @@ export default function ProfileForm() {
             <Card>
                 <form action={projectionAction}>
                     {/* Pass all form values from react-hook-form's state */}
-                    <input type="hidden" name="currentWeight" value={form.getValues('currentWeight') || ''} />
-                    <input type="hidden" name="height" value={form.getValues('height') || ''} />
-                    <input type="hidden" name="weightGoal" value={form.getValues('weightGoal') || ''} />
-                    <input type="hidden" name="age" value={form.getValues('age') || ''} />
-                    <input type="hidden" name="gender" value={form.getValues('gender') || ''} />
-                    <input type="hidden" name="activityLevel" value={form.getValues('activityLevel') || ''} />
-                    <input type="hidden" name="dietaryPreferences" value={form.getValues('dietaryPreferences') || ''} />
+                    <input type="hidden" name="currentWeight" value={form.watch('currentWeight') || ''} />
+                    <input type="hidden" name="height" value={form.watch('height') || ''} />
+                    <input type="hidden" name="weightGoal" value={form.watch('weightGoal') || ''} />
+                    <input type="hidden" name="age" value={form.watch('age') || ''} />
+                    <input type="hidden" name="gender" value={form.watch('gender') || ''} />
+                    <input type="hidden" name="activityLevel" value={form.watch('activityLevel') || ''} />
+                    <input type="hidden" name="dietaryPreferences" value={form.watch('dietaryPreferences') || ''} />
                     
                     <CardHeader>
                         <CardTitle className="font-headline">Projeção de Meta com IA</CardTitle>
