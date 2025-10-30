@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useActionState, useMemo, startTransition } from 'react';
+import { useEffect, useState, useRef, useActionState, useMemo } from 'react';
 import { useFormStatus } from 'react-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,7 +15,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Loader2, Save, Wand2, Check, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useDoc, setDocumentNonBlocking, addDocumentNonBlocking, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection, serverTimestamp, setDoc } from 'firebase/firestore';
+import { doc, collection, serverTimestamp } from 'firebase/firestore';
 import { getGoalProjection, GoalProjectionState, validateProfile, ValidateProfileState } from '@/app/actions';
 import type { UserProfile, UserAchievement } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
@@ -349,9 +349,6 @@ export default function ProfileForm() {
             </div>
         );
     }
-    
-    const { formState: { isSubmitting } } = form;
-
 
     return (
         <div className="space-y-6">
@@ -467,6 +464,8 @@ export default function ProfileForm() {
                               render={({ field }) => (
                                 <FormItem>
                                   <FormLabel>Gênero</FormLabel>
+                                  {/* Hidden input to ensure value is submitted with form */}
+                                  <input type="hidden" {...field} />
                                   <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
                                       <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
@@ -489,6 +488,8 @@ export default function ProfileForm() {
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Nível de Atividade</FormLabel>
+                                     {/* Hidden input to ensure value is submitted with form */}
+                                    <input type="hidden" {...field} />
                                     <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
                                         <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
