@@ -525,7 +525,7 @@ export default function ProfileForm() {
                         />
                     </CardContent>
                      <CardFooter className="flex justify-end p-4 border-t">
-                        <Button type="submit" variant="secondary">
+                        <Button type="submit">
                             <Save className="mr-2 h-4 w-4" />
                             Salvar Alterações
                         </Button>
