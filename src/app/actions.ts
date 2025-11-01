@@ -184,7 +184,7 @@ export async function addMeal(
 // --- Validate Profile Action ---
 export async function validateProfile(
     rawData: ProfileFormData,
-): Promise<{success: boolean, message: string, data?: ProfileFormData}> {
+): Promise<{success: boolean; message: string; data?: ProfileFormData}> {
     
     const validatedFields = profileFormSchema.safeParse(rawData);
     
@@ -217,8 +217,21 @@ export async function validateProfile(
 
 // --- Get Daily Tip Action ---
 export async function fetchDailyTip(input: GetDailyTipInput): Promise<string> {
+  const activityLevelMap: { [key: string]: string } = {
+    'sedentary': 'Sedentário',
+    'lightly active': 'Levemente Ativo',
+    'moderately active': 'Moderadamente Ativo',
+    'very active': 'Muito Ativo',
+    'extra active': 'Extremamente Ativo',
+  };
+
+  const translatedInput = { ...input };
+  if (input.activityLevel && activityLevelMap[input.activityLevel]) {
+    translatedInput.activityLevel = activityLevelMap[input.activityLevel];
+  }
+  
   try {
-    const result = await getDailyTip(input);
+    const result = await getDailyTip(translatedInput);
     return result.tip;
   } catch (error) {
     console.error("Error fetching daily tip:", error);
