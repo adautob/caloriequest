@@ -7,9 +7,16 @@ import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { useUser } from '@/firebase';
 
-function signInWithGoogle(auth: any) {
+async function signInWithGoogle(auth: any) {
   const provider = new GoogleAuthProvider();
-  signInWithPopup(auth, provider);
+  try {
+    await signInWithPopup(auth, provider);
+  } catch (error: any) {
+    // Gracefully handle the error when the user closes the popup.
+    if (error.code !== 'auth/popup-closed-by-user' && error.code !== 'auth/cancelled-popup-request') {
+      console.error("Firebase sign-in error:", error);
+    }
+  }
 }
 
 export default function LoginPage() {
