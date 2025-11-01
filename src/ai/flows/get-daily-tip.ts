@@ -14,7 +14,7 @@ import { z } from 'zod';
 const GetDailyTipInputSchema = z.object({
   currentWeight: z.number().optional().describe('The current weight of the user in kilograms.'),
   goalWeight: z.number().optional().describe('The desired weight of the user in kilograms.'),
-  activityLevel: z.string().optional().describe('The activity level of the user.'),
+  activityLevel: z.string().optional().describe('The activity level of the user (e.g., Sedentário, Levemente Ativo).'),
   dietaryPreferences: z.string().optional().describe('The dietary preferences of the user.'),
   name: z.string().optional().describe('The name of the user.'),
 });

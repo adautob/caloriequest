@@ -228,6 +228,13 @@ export async function fetchDailyTip(input: GetDailyTipInput): Promise<string> {
   const translatedInput = { ...input };
   if (input.activityLevel && activityLevelMap[input.activityLevel]) {
     translatedInput.activityLevel = activityLevelMap[input.activityLevel];
+  } else if (input.activityLevel) {
+    // If the value is already in Portuguese, keep it.
+    // This handles cases where the form might send the translated value directly.
+    const isPortuguese = Object.values(activityLevelMap).includes(input.activityLevel);
+    if (!isPortuguese) {
+      translatedInput.activityLevel = input.activityLevel;
+    }
   }
   
   try {
