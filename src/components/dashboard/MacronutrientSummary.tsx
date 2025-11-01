@@ -5,6 +5,8 @@ import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebas
 import { collection, query, where, Timestamp } from "firebase/firestore";
 import type { Meal } from "@/lib/types";
 import { Skeleton } from "../ui/skeleton";
+import { useDashboard } from "./DashboardProvider";
+import { endOfDay, startOfDay } from "date-fns";
 
 // Recommended daily goals in grams
 const GOALS = {
@@ -17,21 +19,23 @@ const GOALS = {
 export default function MacronutrientSummary() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const { selectedDate } = useDashboard();
   
   const [totals, setTotals] = useState({ protein: 0, carbohydrates: 0, fat: 0, fiber: 0 });
   const [percentages, setPercentages] = useState({ protein: 0, carbohydrates: 0, fat: 0, fiber: 0 });
 
   const mealsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayTimestamp = Timestamp.fromDate(today);
+    
+    const start = startOfDay(selectedDate);
+    const end = endOfDay(selectedDate);
 
     return query(
       collection(firestore, `users/${user.uid}/meals`),
-      where('createdAt', '>=', todayTimestamp)
+      where('createdAt', '>=', start),
+      where('createdAt', '<=', end)
     );
-  }, [user, firestore]);
+  }, [user, firestore, selectedDate]);
 
   const { data: meals, isLoading } = useCollection<Meal>(mealsQuery);
 
@@ -57,6 +61,9 @@ export default function MacronutrientSummary() {
       } else {
         setPercentages({ protein: 0, carbohydrates: 0, fat: 0, fiber: 0 });
       }
+    } else {
+        setTotals({ protein: 0, carbohydrates: 0, fat: 0, fiber: 0 });
+        setPercentages({ protein: 0, carbohydrates: 0, fat: 0, fiber: 0 });
     }
   }, [meals]);
 
@@ -79,7 +86,7 @@ export default function MacronutrientSummary() {
   return (
     <Card className="lg:col-span-2 shadow-sm hover:shadow-md transition-shadow">
       <CardHeader className="pb-4">
-        <CardTitle className="font-headline">Macros de Hoje</CardTitle>
+        <CardTitle className="font-headline">Macros</CardTitle>
         <CardDescription>Resumo de proteínas, carboidratos, gorduras e fibras.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

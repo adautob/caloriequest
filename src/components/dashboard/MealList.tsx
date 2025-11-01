@@ -7,7 +7,7 @@ import { useUser, useCollection, useFirestore, useMemoFirebase, deleteDocumentNo
 import { collection, query, orderBy, where, Timestamp, doc } from "firebase/firestore";
 import type { Meal } from "@/lib/types";
 import { Skeleton } from "../ui/skeleton";
-import { format } from 'date-fns';
+import { format, startOfDay, endOfDay } from 'date-fns';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,25 +20,28 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast";
+import { useDashboard } from "./DashboardProvider";
 
 
 export default function MealList() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { selectedDate } = useDashboard();
 
   const mealsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayTimestamp = Timestamp.fromDate(today);
+    
+    const start = startOfDay(selectedDate);
+    const end = endOfDay(selectedDate);
 
     return query(
         collection(firestore, `users/${user.uid}/meals`), 
-        where('createdAt', '>=', todayTimestamp),
+        where('createdAt', '>=', start),
+        where('createdAt', '<=', end),
         orderBy('createdAt', 'desc')
     );
-  }, [user, firestore]);
+  }, [user, firestore, selectedDate]);
 
   const { data: meals, isLoading } = useCollection<Meal>(mealsQuery);
   
@@ -65,9 +68,9 @@ export default function MealList() {
     <Card className="shadow-sm hover:shadow-md transition-shadow h-full">
       <CardHeader className="flex flex-row items-center">
         <div className="grid gap-2">
-          <CardTitle className="font-headline">Refeições do Dia</CardTitle>
+          <CardTitle className="font-headline">Refeições</CardTitle>
           <CardDescription>
-            {meals ? `${meals.length} refeições registradas hoje.` : 'Carregando...'}
+            {meals ? `${meals.length} refeições registradas.` : 'Carregando...'}
           </CardDescription>
         </div>
         <AddMealDialog>
@@ -125,7 +128,7 @@ export default function MealList() {
          {!isLoading && (!meals || meals.length === 0) && (
             <div className="text-center text-muted-foreground py-10">
                 <UtensilsCrossed className="mx-auto h-12 w-12 text-gray-400" />
-                <p className="mt-4 text-sm">Nenhuma refeição registrada ainda.</p>
+                <p className="mt-4 text-sm">Nenhuma refeição registrada neste dia.</p>
                 <p className="text-xs">Clique em "Adicionar" para começar.</p>
             </div>
         )}
@@ -133,5 +136,3 @@ export default function MealList() {
     </Card>
   );
 }
-
-    

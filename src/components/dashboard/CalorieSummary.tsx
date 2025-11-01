@@ -6,12 +6,15 @@ import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@
 import { collection, query, where, Timestamp, doc } from "firebase/firestore";
 import type { Meal, UserProfile } from "@/lib/types";
 import { Skeleton } from "../ui/skeleton";
+import { useDashboard } from "./DashboardProvider";
+import { startOfDay, endOfDay } from 'date-fns';
 
 const DEFAULT_CALORIE_GOAL = 2200;
 
 export default function CalorieSummary() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const { selectedDate } = useDashboard();
   const [totalCalories, setTotalCalories] = useState(0);
   const [progress, setProgress] = useState(0);
   
@@ -25,15 +28,16 @@ export default function CalorieSummary() {
 
   const mealsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayTimestamp = Timestamp.fromDate(today);
+
+    const start = startOfDay(selectedDate);
+    const end = endOfDay(selectedDate);
 
     return query(
       collection(firestore, `users/${user.uid}/meals`),
-      where('createdAt', '>=', todayTimestamp)
+      where('createdAt', '>=', start),
+      where('createdAt', '<=', end)
     );
-  }, [user, firestore]);
+  }, [user, firestore, selectedDate]);
 
   const { data: meals, isLoading: areMealsLoading } = useCollection<Meal>(mealsQuery);
 
@@ -42,6 +46,9 @@ export default function CalorieSummary() {
       const calories = meals.reduce((sum, meal) => sum + meal.calories, 0);
       setTotalCalories(calories);
       setProgress((calories / calorieGoal) * 100);
+    } else {
+      setTotalCalories(0);
+      setProgress(0);
     }
   }, [meals, calorieGoal]);
 
@@ -63,7 +70,7 @@ export default function CalorieSummary() {
   return (
     <Card className="lg:col-span-2 shadow-sm hover:shadow-md transition-shadow">
       <CardHeader className="pb-2">
-        <CardDescription className="font-headline">Calorias de Hoje</CardDescription>
+        <CardDescription className="font-headline">Calorias</CardDescription>
         <CardTitle className="text-4xl font-headline">
           {totalCalories.toLocaleString()} / <span className="text-2xl text-muted-foreground">{calorieGoal.toLocaleString()} kcal</span>
         </CardTitle>
