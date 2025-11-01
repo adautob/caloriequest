@@ -13,18 +13,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "../ui/textarea";
 import { useUser, useFirestore, addDocumentNonBlocking, useCollection, useMemoFirebase } from "@/firebase";
 import { useFormStatus } from "react-dom";
-import { addMeal } from "@/app/actions";
+import { addMeal, AddMealState } from "@/app/actions";
 import { useEffect, useState, useRef, useActionState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save } from "lucide-react";
 import { collection, serverTimestamp, query, where, Timestamp } from "firebase/firestore";
 import { UserAchievement } from "@/lib/types";
 
-const initialState = {
+const initialState: AddMealState = {
   message: null,
   nutritionalInfo: null,
   errors: null,
   success: false,
+  submissionId: undefined,
 };
 
 function SubmitButton() {
@@ -44,6 +45,8 @@ export default function AddMealDialog({ children }: { children: React.ReactNode 
   const [isOpen, setIsOpen] = useState(false);
   const [state, formAction] = useActionState(addMeal, initialState);
   const formRef = useRef<HTMLFormElement>(null);
+  const [lastSuccessId, setLastSuccessId] = useState<string | null>(null);
+
 
   const userAchievementsRef = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -64,7 +67,10 @@ export default function AddMealDialog({ children }: { children: React.ReactNode 
   useEffect(() => {
     if (!state || !user || !firestore || !userAchievementsRef) return;
 
-    if (state.success && state.nutritionalInfo) {
+    // Only process if it's a new, successful submission
+    if (state.success && state.submissionId && state.submissionId !== lastSuccessId && state.nutritionalInfo) {
+      setLastSuccessId(state.submissionId); // Mark this submission as processed
+
       // AI part was successful, now save to Firestore
       const mealsCollection = collection(firestore, `users/${user.uid}/meals`);
       
@@ -103,14 +109,15 @@ export default function AddMealDialog({ children }: { children: React.ReactNode 
       setIsOpen(false);
       formRef.current?.reset();
 
-    } else if (state.message && !state.success) {
-       toast({
+    } else if (state.message && !state.success && state.submissionId !== lastSuccessId) {
+      setLastSuccessId(state.submissionId || null); // Mark as processed to avoid repeated toasts
+      toast({
         title: "Erro ao adicionar refeição",
         description: state.message,
         variant: "destructive",
       });
     }
-  }, [state, user, firestore, toast, userAchievementsRef, userAchievements, mealsToday]);
+  }, [state, user, firestore, toast, userAchievementsRef, userAchievements, mealsToday, lastSuccessId]);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>

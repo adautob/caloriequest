@@ -133,13 +133,14 @@ const addMealFormSchema = z.object({
   foodDescription: z.string().min(3, "A descrição da refeição deve ter pelo menos 3 caracteres."),
 });
 
-type AddMealState = {
+export type AddMealState = {
   message?: string | null;
   nutritionalInfo?: LogMealOutput | null;
   errors?: {
     foodDescription?: string[];
   } | null;
   success?: boolean;
+  submissionId?: string;
 }
 
 export async function addMeal(
@@ -168,6 +169,7 @@ export async function addMeal(
             nutritionalInfo,
             errors: null,
             success: true,
+            submissionId: new Date().getTime().toString(), // Unique ID for this submission
         }
     } catch(error) {
         console.error("Error getting nutritional info from AI:", error);
@@ -180,24 +182,15 @@ export async function addMeal(
 }
 
 // --- Validate Profile Action ---
-
-export type ValidateProfileState = {
-    message: string;
-    errors?: z.ZodError['errors'];
-    success: boolean;
-    data?: ProfileFormData;
-}
-
 export async function validateProfile(
     rawData: ProfileFormData,
-): Promise<ValidateProfileState> {
+): Promise<{success: boolean, message: string, data?: ProfileFormData}> {
     
     const validatedFields = profileFormSchema.safeParse(rawData);
     
     if (!validatedFields.success) {
         return {
-            message: "Dados inválidos.",
-            errors: validatedFields.error.errors,
+            message: "Dados inválidos: " + validatedFields.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
             success: false,
         }
     }
@@ -220,6 +213,7 @@ export async function validateProfile(
         data: validatedFields.data
     }
 }
+
 
 // --- Get Daily Tip Action ---
 export async function fetchDailyTip(input: GetDailyTipInput): Promise<string> {
