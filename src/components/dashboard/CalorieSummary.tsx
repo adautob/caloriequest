@@ -8,6 +8,7 @@ import type { Meal, UserProfile } from "@/lib/types";
 import { Skeleton } from "../ui/skeleton";
 import { useDashboard } from "./DashboardProvider";
 import { startOfDay, endOfDay } from 'date-fns';
+import { cn } from "@/lib/utils";
 
 const DEFAULT_CALORIE_GOAL = 2200;
 
@@ -45,12 +46,19 @@ export default function CalorieSummary() {
     if (meals) {
       const calories = meals.reduce((sum, meal) => sum + meal.calories, 0);
       setTotalCalories(calories);
-      setProgress((calories / calorieGoal) * 100);
+      if (calorieGoal > 0) {
+        setProgress(Math.min((calories / calorieGoal) * 100, 100));
+      } else {
+        setProgress(100); // If goal is 0, consider it met.
+      }
     } else {
       setTotalCalories(0);
       setProgress(0);
     }
   }, [meals, calorieGoal]);
+
+  const caloriesRemaining = Math.max(0, calorieGoal - totalCalories);
+  const caloriesOver = totalCalories > calorieGoal ? totalCalories - calorieGoal : 0;
 
   if (areMealsLoading || isProfileLoading) {
     return (
@@ -71,13 +79,18 @@ export default function CalorieSummary() {
     <Card className="lg:col-span-2 shadow-sm hover:shadow-md transition-shadow">
       <CardHeader className="pb-2">
         <CardDescription className="font-headline">Calorias</CardDescription>
-        <CardTitle className="text-4xl font-headline">
+        <CardTitle className={cn("text-4xl font-headline", totalCalories > calorieGoal && "text-orange-500")}>
           {totalCalories.toLocaleString()} / <span className="text-2xl text-muted-foreground">{calorieGoal.toLocaleString()} kcal</span>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <Progress value={progress} aria-label={`${progress.toFixed(0)}% da meta de calorias`} className="h-3 bg-primary/20 [&>div]:bg-accent" />
-        <p className="text-xs text-muted-foreground mt-2">{Math.max(0, calorieGoal - totalCalories).toLocaleString()} calorias restantes</p>
+        <p className="text-xs text-muted-foreground mt-2">
+            {caloriesOver > 0 
+                ? <span className="font-medium text-orange-500">{caloriesOver.toLocaleString()} kcal acima da meta</span>
+                : <span>{caloriesRemaining.toLocaleString()} calorias restantes</span>
+            }
+        </p>
       </CardContent>
     </Card>
   );
