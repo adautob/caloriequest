@@ -1,11 +1,25 @@
 'use client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from "@/components/ui/chart";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy } from "firebase/firestore";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip } from 'recharts';
+import { useUser, useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking } from "@/firebase";
+import { collection, query, orderBy, doc } from "firebase/firestore";
 import type { WeightMeasurement } from "@/lib/types";
 import { Skeleton } from "../ui/skeleton";
+import { Trash2 } from "lucide-react";
+import { Button } from "../ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 const chartConfig = {
   weight: {
@@ -13,6 +27,58 @@ const chartConfig = {
     color: 'hsl(var(--accent))',
   },
 } satisfies ChartConfig;
+
+const CustomTooltip = ({ active, payload, label }: any) => {
+    const { user } = useUser();
+    const firestore = useFirestore();
+    const { toast } = useToast();
+
+    if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        const date = new Date(data.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+        
+        const handleDelete = (e: React.MouseEvent) => {
+            e.stopPropagation();
+            if (!user || !firestore || !data.id) return;
+            const docRef = doc(firestore, `users/${user.uid}/weightMeasurements`, data.id);
+            deleteDocumentNonBlocking(docRef);
+            toast({
+                title: "Medição Excluída",
+                description: `O registro de ${data.weight}kg foi removido.`,
+            });
+        };
+
+        return (
+            <div className="bg-popover text-popover-foreground rounded-lg border shadow-sm p-3 flex items-center gap-4">
+                <div>
+                    <p className="font-bold">{`${data.weight} kg`}</p>
+                    <p className="text-sm text-muted-foreground">{date}</p>
+                </div>
+
+                <AlertDialog onOpenChange={(open) => !open && (document.body.style.pointerEvents = 'auto')}>
+                    <AlertDialogTrigger asChild onMouseEnter={(e) => e.stopPropagation()}>
+                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Esta ação não pode ser desfeita. Isso excluirá permanentemente a medição de <strong>{data.weight}kg</strong> do dia <strong>{date}</strong>.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90">Excluir</AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+            </div>
+        );
+    }
+    return null;
+};
 
 export default function WeightProgressChart() {
   const { user } = useUser();
@@ -91,19 +157,9 @@ export default function WeightProgressChart() {
               width={50}
               dataKey="weight"
             />
-            <ChartTooltip
-              cursor={false}
-              content={<ChartTooltipContent 
-                indicator="line" 
-                labelFormatter={(value, payload) => {
-                    const date = new Date(value);
-                    const weight = payload?.[0]?.payload.weight;
-                    if (!isNaN(date.getTime()) && weight) {
-                         return `${weight} kg em ${date.toLocaleDateString('pt-BR')}`;
-                    }
-                    return ""
-                }}
-                />}
+            <RechartsTooltip
+              cursor={{ stroke: 'hsl(var(--border))', strokeWidth: 1, strokeDasharray: '3 3' }}
+              content={<CustomTooltip />}
             />
             <Line
               dataKey="weight"
@@ -112,11 +168,15 @@ export default function WeightProgressChart() {
               strokeWidth={3}
               dot={{
                 fill: "var(--color-weight)",
-                r: 4
+                r: 4,
+                strokeWidth: 2,
+                stroke: 'hsl(var(--background))'
               }}
               activeDot={{
                 r: 8,
-                className: "stroke-primary"
+                stroke: 'hsl(var(--primary))',
+                strokeWidth: 2,
+                fill: 'hsl(var(--background))'
               }}
             />
           </LineChart>
