@@ -185,9 +185,9 @@ export default function WeightProgressChart() {
               stroke="var(--color-weight)"
               strokeWidth={3}
               dot={(props) => {
-                const { payload } = props;
+                const { key, payload, ...rest } = props;
                 if (payload.isPlaceholder) return null;
-                return (<Dot {...props} r={4} fill="var(--color-weight)" strokeWidth={2} stroke="hsl(var(--background))" />);
+                return (<Dot key={key} {...rest} r={4} fill="var(--color-weight)" strokeWidth={2} stroke="hsl(var(--background))" />);
               }}
               activeDot={<CustomActiveDot />}
               strokeDasharray={chartData.length > 0 && chartData[chartData.length - 1].isPlaceholder ? "5 5" : "0"}
