@@ -74,35 +74,39 @@ export default function WeightProgressChart() {
 
   const chartData = useMemo(() => {
     const today = new Date().toISOString();
+
+    const measurements = rawChartData || [];
     
-    if (!rawChartData || rawChartData.length === 0) {
+    // Base case: no data at all
+    if (measurements.length === 0) {
       if (userProfile?.currentWeight) {
-        return [
-          { date: today, weight: userProfile.currentWeight },
-          { date: today, weight: userProfile.currentWeight, isPlaceholder: true }
-        ];
+         // Create two points for today to draw a flat line
+        const startPoint = { date: today, weight: userProfile.currentWeight };
+        const endPoint = { ...startPoint, isPlaceholder: true };
+        return [startPoint, endPoint];
       }
-      return [];
+      return []; // Truly no data to show
     }
 
-    if (rawChartData.length === 1) {
-      const singleEntry = rawChartData[0];
-       // Only add today's point if the single entry is not from today
-       const singleEntryDate = new Date(singleEntry.date).toDateString();
-       const todayDate = new Date().toDateString();
-       if (singleEntryDate !== todayDate) {
-          return [
-            singleEntry,
-            { date: today, weight: singleEntry.weight, isPlaceholder: true },
-          ];
-       }
-       return [
-         singleEntry,
-         {...singleEntry, isPlaceholder: true} // Dotted line needs two points
-       ]
+    // If there's only one measurement, we create a placeholder to draw a line to today
+    if (measurements.length === 1) {
+      const singleEntry = measurements[0];
+      const singleEntryDate = new Date(singleEntry.date).toDateString();
+      const todayDate = new Date().toDateString();
+      
+      // If the single entry is not from today, add a placeholder for today
+      if (singleEntryDate !== todayDate) {
+        return [
+          singleEntry,
+          { date: today, weight: singleEntry.weight, isPlaceholder: true },
+        ];
+      }
+      // If it is from today, duplicate it to draw a point
+      return [singleEntry, { ...singleEntry, isPlaceholder: true }];
     }
     
-    return rawChartData;
+    // If there are multiple measurements, just return them
+    return measurements;
   }, [rawChartData, userProfile]);
 
   const isLoading = isProfileLoading || areMeasurementsLoading;
