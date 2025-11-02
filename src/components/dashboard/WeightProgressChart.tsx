@@ -2,10 +2,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer } from "@/components/ui/chart";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Dot } from 'recharts';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy } from "firebase/firestore";
-import type { WeightMeasurement } from "@/lib/types";
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase";
+import { collection, query, orderBy, doc } from "firebase/firestore";
+import type { WeightMeasurement, UserProfile } from "@/lib/types";
 import { Skeleton } from "../ui/skeleton";
+import { useMemo } from "react";
 
 const chartConfig = {
   weight: {
@@ -17,6 +18,9 @@ const chartConfig = {
 const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
+        // Check if the data point is a placeholder, if so, don't show tooltip
+        if (data.isPlaceholder) return null;
+        
         const date = new Date(data.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
         
         return (
@@ -32,7 +36,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 const CustomActiveDot = (props: any) => {
-  const { cx, cy, stroke, fill } = props;
+  const { cx, cy, stroke, fill, payload } = props;
+  if (payload.isPlaceholder) return null;
   return (
     <Dot
       cx={cx}
@@ -51,6 +56,12 @@ export default function WeightProgressChart() {
   const { user } = useUser();
   const firestore = useFirestore();
 
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, `users/${user.uid}`);
+  }, [user, firestore]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
+
   const weightMeasurementsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return query(
@@ -59,7 +70,42 @@ export default function WeightProgressChart() {
     );
   }, [user, firestore]);
 
-  const { data: chartData, isLoading } = useCollection<WeightMeasurement>(weightMeasurementsQuery);
+  const { data: rawChartData, isLoading: areMeasurementsLoading } = useCollection<WeightMeasurement>(weightMeasurementsQuery);
+
+  const chartData = useMemo(() => {
+    const today = new Date().toISOString();
+    
+    if (!rawChartData || rawChartData.length === 0) {
+      if (userProfile?.currentWeight) {
+        return [
+          { date: today, weight: userProfile.currentWeight },
+          { date: today, weight: userProfile.currentWeight, isPlaceholder: true }
+        ];
+      }
+      return [];
+    }
+
+    if (rawChartData.length === 1) {
+      const singleEntry = rawChartData[0];
+       // Only add today's point if the single entry is not from today
+       const singleEntryDate = new Date(singleEntry.date).toDateString();
+       const todayDate = new Date().toDateString();
+       if (singleEntryDate !== todayDate) {
+          return [
+            singleEntry,
+            { date: today, weight: singleEntry.weight, isPlaceholder: true },
+          ];
+       }
+       return [
+         singleEntry,
+         {...singleEntry, isPlaceholder: true} // Dotted line needs two points
+       ]
+    }
+    
+    return rawChartData;
+  }, [rawChartData, userProfile]);
+
+  const isLoading = isProfileLoading || areMeasurementsLoading;
 
   if (isLoading) {
     return (
@@ -75,7 +121,7 @@ export default function WeightProgressChart() {
     )
   }
   
-  if (!chartData || chartData.length < 2) {
+  if (!chartData || chartData.length === 0) {
     return (
         <Card className="shadow-sm hover:shadow-md transition-shadow h-full">
             <CardHeader>
@@ -83,12 +129,14 @@ export default function WeightProgressChart() {
                 <CardDescription>Seu peso ao longo do tempo.</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col items-center justify-center h-[250px] text-center">
-                <p className="text-muted-foreground">Registre pelo menos duas medições de peso para ver seu progresso.</p>
-                <p className="text-xs text-muted-foreground mt-1">Você pode registrar seu peso na página de Perfil.</p>
+                <p className="text-muted-foreground">Registre seu peso no seu perfil para começar a ver o progresso.</p>
             </CardContent>
         </Card>
     );
   }
+
+  const yDomainMin = chartData.length > 0 ? Math.min(...chartData.map(d => d.weight)) - 2 : 50;
+  const yDomainMax = chartData.length > 0 ? Math.max(...chartData.map(d => d.weight)) + 2 : 100;
 
   return (
     <Card className="shadow-sm hover:shadow-md transition-shadow h-full">
@@ -115,12 +163,14 @@ export default function WeightProgressChart() {
               axisLine={false}
               tickMargin={8}
               tickFormatter={(value) => new Date(value).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+              type="category"
+              allowDuplicatedCategory={true}
             />
             <YAxis 
               tickLine={false} 
               axisLine={false}
               tickMargin={8}
-              domain={['dataMin - 2', 'dataMax + 2']}
+              domain={[yDomainMin, yDomainMax]}
               width={50}
               dataKey="weight"
             />
@@ -134,13 +184,13 @@ export default function WeightProgressChart() {
               type="monotone"
               stroke="var(--color-weight)"
               strokeWidth={3}
-              dot={{
-                fill: "var(--color-weight)",
-                r: 4,
-                strokeWidth: 2,
-                stroke: 'hsl(var(--background))'
+              dot={(props) => {
+                const { payload } = props;
+                if (payload.isPlaceholder) return null;
+                return (<Dot {...props} r={4} fill="var(--color-weight)" strokeWidth={2} stroke="hsl(var(--background))" />);
               }}
               activeDot={<CustomActiveDot />}
+              strokeDasharray={chartData.length > 0 && chartData[chartData.length - 1].isPlaceholder ? "5 5" : "0"}
             />
           </LineChart>
         </ChartContainer>
