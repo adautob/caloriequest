@@ -15,9 +15,9 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Loader2, Save, Wand2, Check, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useDoc, setDocumentNonBlocking, addDocumentNonBlocking, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection, serverTimestamp, getDocs, limit, query } from 'firebase/firestore';
+import { doc, collection, serverTimestamp, getDocs, limit, query, orderBy, Timestamp } from 'firebase/firestore';
 import { getGoalProjection, GoalProjectionState, validateProfile, ProfileFormData } from '@/app/actions';
-import type { UserProfile, UserAchievement } from '@/lib/types';
+import type { UserProfile, UserAchievement, WeightMeasurement } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
 
 
@@ -107,6 +107,13 @@ export default function ProfileForm() {
     
     const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
 
+    const weightMeasurementsQuery = useMemoFirebase(() => {
+        if (!user || !firestore) return null;
+        return query(collection(firestore, `users/${user.uid}/weightMeasurements`), orderBy('createdAt', 'desc'), limit(1));
+    }, [user, firestore]);
+
+    const { data: lastWeightMeasurement } = useCollection<WeightMeasurement>(weightMeasurementsQuery);
+
     const form = useForm<z.infer<typeof profileFormSchema>>({
       resolver: zodResolver(profileFormSchema),
       defaultValues: {
@@ -130,11 +137,19 @@ export default function ProfileForm() {
     const dailyCalorieGoal = form.watch('dailyCalorieGoal');
 
     useEffect(() => {
+        const lastWeight = lastWeightMeasurement?.[0]?.weight;
+        const profileWeight = userProfile?.currentWeight;
+
+        let weightToSet = profileWeight;
+        if (lastWeight) {
+            weightToSet = lastWeight;
+        }
+
         if (userProfile) {
             const formValues = {
                 uid: user?.uid || '',
                 name: userProfile.name || user?.displayName || '',
-                currentWeight: userProfile.currentWeight,
+                currentWeight: weightToSet,
                 height: userProfile.height,
                 weightGoal: userProfile.weightGoal,
                 dailyCalorieGoal: userProfile.dailyCalorieGoal,
@@ -144,30 +159,23 @@ export default function ProfileForm() {
                 dietaryPreferences: userProfile.dietaryPreferences || '',
             };
             form.reset(formValues);
+        } else if (user) {
+            // Pre-fill from auth if profile doesn't exist
+            form.reset({
+                uid: user.uid,
+                name: user.displayName || '',
+            });
         }
-    }, [userProfile, form, user]);
+    }, [userProfile, lastWeightMeasurement, form, user]);
 
 
     const onSubmit = async (data: ProfileFormData) => {
         const result = await validateProfile(data);
 
         if (result.success && result.data && user && firestore) {
-            // Save initial weight to history if it's the first time
-            if (result.data.currentWeight) {
-                const weightMeasurementsCollection = collection(firestore, `users/${user.uid}/weightMeasurements`);
-                const q = query(weightMeasurementsCollection, limit(1));
-                const snapshot = await getDocs(q);
-                if (snapshot.empty) { // This is the first weight entry
-                    addDocumentNonBlocking(weightMeasurementsCollection, {
-                        weight: result.data.currentWeight,
-                        date: new Date().toISOString(),
-                        createdAt: serverTimestamp(),
-                    });
-                }
-            }
-            
             if (userProfileRef) {
-                const { uid, ...profileData } = result.data;
+                // Exclude weight from direct profile save, it's handled by weight history
+                const { uid, currentWeight, ...profileData } = result.data;
                 const dataToSave: { [key: string]: any } = {};
                 for (const [key, value] of Object.entries(profileData)) {
                     if (value !== undefined) {
@@ -227,7 +235,7 @@ export default function ProfileForm() {
         }
     }, [projectionState, toast, userAchievementsRef, userAchievements, form]);
 
-    const handleAddWeightMeasurement = (e: React.FormEvent<HTMLFormElement>) => {
+    const handleAddWeightMeasurement = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         const weightValue = parseFloat((e.currentTarget.elements.namedItem('newWeight') as HTMLInputElement).value);
 
@@ -241,16 +249,37 @@ export default function ProfileForm() {
         }
 
         const weightMeasurementsCollection = collection(firestore, `users/${user.uid}/weightMeasurements`);
+        const q = query(weightMeasurementsCollection, limit(1));
+        const snapshot = await getDocs(q);
+
+        // This is the first ever weight entry for the user
+        if (snapshot.empty) {
+            if (userAchievementsRef) {
+                addDocumentNonBlocking(userAchievementsRef, {
+                    achievementId: 'first-log',
+                    dateEarned: serverTimestamp(),
+                });
+                toast({
+                    title: "Conquista Desbloqueada!",
+                    description: "Primeiro Registro: Você salvou seu peso pela primeira vez.",
+                    className: "bg-accent text-accent-foreground border-accent"
+                });
+            }
+        }
+        
+        // Add new weight to history
         addDocumentNonBlocking(weightMeasurementsCollection, {
             weight: weightValue,
             date: new Date().toISOString(),
-            createdAt: serverTimestamp(),
+            createdAt: serverTimestamp() as Timestamp,
         });
         
+        // Update current weight on profile
         if(userProfileRef){
             setDocumentNonBlocking(userProfileRef, { currentWeight: weightValue }, { merge: true });
         }
         
+        // Check for weight goal achievement
         if (userAchievementsRef && userProfile?.weightGoal) {
             const hasMilestoneAchievement = userAchievements?.some(ach => ach.achievementId === 'weight-loss-milestone');
             if (!hasMilestoneAchievement && weightValue <= userProfile.weightGoal) {
@@ -334,7 +363,7 @@ export default function ProfileForm() {
                     <CardHeader>
                         <CardTitle className="font-headline">Meu Perfil</CardTitle>
                         <CardDescription>
-                            Atualize suas informações para obter projeções e dicas personalizadas da IA.
+                            Suas informações básicas. O seu peso é atualizado através do registro no card abaixo.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
@@ -371,7 +400,9 @@ export default function ProfileForm() {
                                 <FormItem>
                                   <FormLabel>Peso Atual (kg)</FormLabel>
                                   <FormControl>
-                                    <Input type="number" step="0.1" placeholder="85.5" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value ?? ''} />
+                                     <div className="flex h-10 w-full items-center rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                                        {field.value ? field.value : <span className="text-muted-foreground">N/A</span>}
+                                     </div>
                                   </FormControl>
                                   <FormMessage />
                                 </FormItem>
@@ -626,7 +657,7 @@ export default function ProfileForm() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle className="font-headline">Registrar Novo Peso</CardTitle>
+                    <CardTitle className="font-headline">Registrar Peso</CardTitle>
                     <CardDescription>
                         Adicione uma nova medição de peso para acompanhar seu progresso. Isso também atualizará seu peso atual no perfil.
                     </CardDescription>

@@ -91,17 +91,17 @@ export default function WeightProgressChart() {
   const { data: rawChartData, isLoading } = useCollection<WeightMeasurement>(weightMeasurementsQuery);
 
   const chartData = useMemo(() => {
-    const today = new Date().toISOString();
-    const measurements = rawChartData || [];
-    
-    // Case 1: No data anywhere
-    if (measurements.length === 0) {
+    if (!rawChartData) {
+        return [];
+    }
+    // Case 1: No data
+    if (rawChartData.length === 0) {
         return [];
     }
 
     // Case 2: Only one measurement exists. We'll draw a flat line to today.
-    if (measurements.length === 1) {
-        const singleEntry = measurements[0];
+    if (rawChartData.length === 1) {
+        const singleEntry = rawChartData[0];
         const singleEntryDate = new Date(singleEntry.date).toDateString();
         const todayDate = new Date().toDateString();
 
@@ -109,7 +109,7 @@ export default function WeightProgressChart() {
         if (singleEntryDate !== todayDate) {
             return [
                 singleEntry,
-                { date: today, weight: singleEntry.weight, isPlaceholder: true },
+                { ...singleEntry, date: new Date().toISOString(), isPlaceholder: true },
             ];
         }
         // If it is from today, duplicate it to draw a point
@@ -117,7 +117,7 @@ export default function WeightProgressChart() {
     }
 
     // Case 3: There are multiple measurements, just return them as is
-    return measurements;
+    return rawChartData;
 
   }, [rawChartData]);
 
