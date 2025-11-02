@@ -7,6 +7,7 @@ import type { Meal } from "@/lib/types";
 import { Skeleton } from "../ui/skeleton";
 import { useDashboard } from "./DashboardProvider";
 import { endOfDay, startOfDay } from "date-fns";
+import { cn } from "@/lib/utils";
 
 // Recommended daily goals in grams
 const GOALS = {
@@ -50,13 +51,13 @@ export default function MacronutrientSummary() {
       }, { protein: 0, carbohydrates: 0, fat: 0, fiber: 0 });
       setTotals(newTotals);
 
-      const totalMacros = newTotals.protein + newTotals.carbohydrates + newTotals.fat + newTotals.fiber;
+      const totalMacros = newTotals.protein + newTotals.carbohydrates + newTotals.fat; // Fiber not included in total for percentage breakdown
       if (totalMacros > 0) {
         setPercentages({
           protein: (newTotals.protein / totalMacros) * 100,
           carbohydrates: (newTotals.carbohydrates / totalMacros) * 100,
           fat: (newTotals.fat / totalMacros) * 100,
-          fiber: (newTotals.fiber / totalMacros) * 100,
+          fiber: (newTotals.fiber / GOALS.fiber) * 100, // Fiber percentage is based on its own goal
         });
       } else {
         setPercentages({ protein: 0, carbohydrates: 0, fat: 0, fiber: 0 });
@@ -93,37 +94,37 @@ export default function MacronutrientSummary() {
         <div>
           <div className="flex justify-between mb-1 text-sm font-medium">
             <span className="text-pink-500">Proteína</span>
-            <span className="text-muted-foreground">{totals.protein.toFixed(0)}g / {GOALS.protein}g</span>
+            <span className={cn("text-muted-foreground", totals.protein > GOALS.protein && "text-orange-500 font-semibold")}>{totals.protein.toFixed(0)}g / {GOALS.protein}g</span>
           </div>
           <div className="w-full bg-muted rounded-full h-2.5">
-            <div className="bg-pink-500 h-2.5 rounded-full" style={{ width: `${(totals.protein / GOALS.protein) * 100}%` }}></div>
+            <div className="bg-pink-500 h-2.5 rounded-full" style={{ width: `${Math.min((totals.protein / GOALS.protein) * 100, 100)}%` }}></div>
           </div>
         </div>
         <div>
           <div className="flex justify-between mb-1 text-sm font-medium">
             <span className="text-blue-500">Carboidratos</span>
-            <span className="text-muted-foreground">{totals.carbohydrates.toFixed(0)}g / {GOALS.carbohydrates}g</span>
+            <span className={cn("text-muted-foreground", totals.carbohydrates > GOALS.carbohydrates && "text-orange-500 font-semibold")}>{totals.carbohydrates.toFixed(0)}g / {GOALS.carbohydrates}g</span>
           </div>
           <div className="w-full bg-muted rounded-full h-2.5">
-            <div className="bg-blue-500 h-2.5 rounded-full" style={{ width: `${(totals.carbohydrates / GOALS.carbohydrates) * 100}%` }}></div>
+            <div className="bg-blue-500 h-2.5 rounded-full" style={{ width: `${Math.min((totals.carbohydrates / GOALS.carbohydrates) * 100, 100)}%` }}></div>
           </div>
         </div>
         <div>
           <div className="flex justify-between mb-1 text-sm font-medium">
             <span className="text-yellow-500">Gordura</span>
-            <span className="text-muted-foreground">{totals.fat.toFixed(0)}g / {GOALS.fat}g</span>
+            <span className={cn("text-muted-foreground", totals.fat > GOALS.fat && "text-orange-500 font-semibold")}>{totals.fat.toFixed(0)}g / {GOALS.fat}g</span>
           </div>
           <div className="w-full bg-muted rounded-full h-2.5">
-            <div className="bg-yellow-500 h-2.5 rounded-full" style={{ width: `${(totals.fat / GOALS.fat) * 100}%` }}></div>
+            <div className="bg-yellow-500 h-2.5 rounded-full" style={{ width: `${Math.min((totals.fat / GOALS.fat) * 100, 100)}%` }}></div>
           </div>
         </div>
         <div>
           <div className="flex justify-between mb-1 text-sm font-medium">
             <span className="text-green-500">Fibras</span>
-            <span className="text-muted-foreground">{totals.fiber.toFixed(0)}g / {GOALS.fiber}g</span>
+            <span className={cn("text-muted-foreground", totals.fiber > GOALS.fiber && "text-orange-500 font-semibold")}>{totals.fiber.toFixed(0)}g / {GOALS.fiber}g</span>
           </div>
           <div className="w-full bg-muted rounded-full h-2.5">
-            <div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${(totals.fiber / GOALS.fiber) * 100}%` }}></div>
+            <div className="bg-green-500 h-2.5 rounded-full" style={{ width: `${Math.min((totals.fiber / GOALS.fiber) * 100, 100)}%` }}></div>
           </div>
         </div>
 
@@ -138,7 +139,7 @@ export default function MacronutrientSummary() {
                 <div style={{width: `${percentages.fat}%`}} className="bg-yellow-500 text-center py-1 text-xs font-bold text-white">
                     {percentages.fat > 5 ? `${percentages.fat.toFixed(0)}%` : ''}
                 </div>
-                 <div style={{width: `${percentages.fiber}%`}} className="bg-green-500 text-center py-1 text-xs font-bold text-white rounded-r-full">
+                 <div style={{width: `${(percentages.fiber / 100) * (totals.protein + totals.carbohydrates + totals.fat)}%`}} className="bg-green-500 text-center py-1 text-xs font-bold text-white rounded-r-full">
                     {percentages.fiber > 5 ? `${percentages.fiber.toFixed(0)}%` : ''}
                 </div>
             </div>
@@ -147,5 +148,3 @@ export default function MacronutrientSummary() {
     </Card>
   );
 }
-
-    
