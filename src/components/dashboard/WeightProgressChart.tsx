@@ -74,39 +74,47 @@ export default function WeightProgressChart() {
 
   const chartData = useMemo(() => {
     const today = new Date().toISOString();
-
     const measurements = rawChartData || [];
     
-    // Base case: no data at all
-    if (measurements.length === 0) {
-      if (userProfile?.currentWeight) {
-         // Create two points for today to draw a flat line
-        const startPoint = { date: today, weight: userProfile.currentWeight };
-        const endPoint = { ...startPoint, isPlaceholder: true };
-        return [startPoint, endPoint];
-      }
-      return []; // Truly no data to show
+    // Case 1: No data anywhere
+    if (measurements.length === 0 && !userProfile?.currentWeight) {
+        return [];
     }
 
-    // If there's only one measurement, we create a placeholder to draw a line to today
-    if (measurements.length === 1) {
-      const singleEntry = measurements[0];
-      const singleEntryDate = new Date(singleEntry.date).toDateString();
-      const todayDate = new Date().toDateString();
-      
-      // If the single entry is not from today, add a placeholder for today
-      if (singleEntryDate !== todayDate) {
+    // Case 2: No measurements, but there is a currentWeight in the profile
+    if (measurements.length === 0 && userProfile?.currentWeight) {
+        const profileWeight = userProfile.currentWeight;
         return [
-          singleEntry,
-          { date: today, weight: singleEntry.weight, isPlaceholder: true },
+            { date: today, weight: profileWeight },
+            { date: today, weight: profileWeight, isPlaceholder: true }
         ];
-      }
-      // If it is from today, duplicate it to draw a point
-      return [singleEntry, { ...singleEntry, isPlaceholder: true }];
+    }
+
+    // Case 3: There are measurements
+    if (measurements.length > 0) {
+        // If there's only one measurement, extend a line to today
+        if (measurements.length === 1) {
+            const singleEntry = measurements[0];
+            const singleEntryDate = new Date(singleEntry.date).toDateString();
+            const todayDate = new Date().toDateString();
+
+            // If the single entry is not today, add a placeholder for today to draw the line
+            if (singleEntryDate !== todayDate) {
+                return [
+                    singleEntry,
+                    { date: today, weight: singleEntry.weight, isPlaceholder: true },
+                ];
+            }
+            // If it is from today, duplicate it to draw a point
+            return [singleEntry, { ...singleEntry, isPlaceholder: true }];
+        }
+        // If there are multiple measurements, just return them as is
+        return measurements;
     }
     
-    // If there are multiple measurements, just return them
-    return measurements;
+    // Fallback for any other scenario
+    return [];
+
   }, [rawChartData, userProfile]);
 
   const isLoading = isProfileLoading || areMeasurementsLoading;
