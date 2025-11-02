@@ -1,7 +1,7 @@
 'use client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from "@/components/ui/chart";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip } from 'recharts';
+import { ChartContainer } from "@/components/ui/chart";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Dot } from 'recharts';
 import { useUser, useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking } from "@/firebase";
 import { collection, query, orderBy, doc } from "firebase/firestore";
 import type { WeightMeasurement } from "@/lib/types";
@@ -20,13 +20,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 const chartConfig = {
   weight: {
     label: 'Peso (kg)',
     color: 'hsl(var(--accent))',
   },
-} satisfies ChartConfig;
+};
 
 const CustomTooltip = ({ active, payload, label }: any) => {
     const { user } = useUser();
@@ -54,14 +55,13 @@ const CustomTooltip = ({ active, payload, label }: any) => {
                     <p className="font-bold">{`${data.weight} kg`}</p>
                     <p className="text-sm text-muted-foreground">{date}</p>
                 </div>
-
-                <AlertDialog onOpenChange={(open) => !open && (document.body.style.pointerEvents = 'auto')}>
-                    <AlertDialogTrigger asChild onMouseEnter={(e) => e.stopPropagation()}>
+                 <AlertDialog onOpenChange={(open) => !open && (document.body.style.pointerEvents = 'auto')}>
+                    <AlertDialogTrigger asChild onClick={(e) => e.stopPropagation()}>
                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10">
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     </AlertDialogTrigger>
-                    <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+                    <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()} onPointerDownOutside={(e) => e.preventDefault()}>
                         <AlertDialogHeader>
                             <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
                             <AlertDialogDescription>
@@ -79,6 +79,22 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     }
     return null;
 };
+
+const CustomActiveDot = (props: any) => {
+  const { cx, cy, stroke, fill } = props;
+  return (
+    <Dot
+      cx={cx}
+      cy={cy}
+      r={8}
+      stroke={stroke}
+      fill={fill}
+      strokeWidth={2}
+      className="transition-transform duration-200 ease-in-out transform scale-110"
+    />
+  );
+};
+
 
 export default function WeightProgressChart() {
   const { user } = useUser();
@@ -160,6 +176,7 @@ export default function WeightProgressChart() {
             <RechartsTooltip
               cursor={{ stroke: 'hsl(var(--border))', strokeWidth: 1, strokeDasharray: '3 3' }}
               content={<CustomTooltip />}
+              wrapperStyle={{ outline: "none" }}
             />
             <Line
               dataKey="weight"
@@ -172,12 +189,7 @@ export default function WeightProgressChart() {
                 strokeWidth: 2,
                 stroke: 'hsl(var(--background))'
               }}
-              activeDot={{
-                r: 8,
-                stroke: 'hsl(var(--primary))',
-                strokeWidth: 2,
-                fill: 'hsl(var(--background))'
-              }}
+              activeDot={<CustomActiveDot />}
             />
           </LineChart>
         </ChartContainer>
