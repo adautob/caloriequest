@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { useUser, useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, updateDocumentNonBlocking, useFirebase } from '@/firebase';
 import { collection, query, orderBy, doc } from 'firebase/firestore';
 import type { WeightMeasurement } from '@/lib/types';
 import { format } from 'date-fns';
