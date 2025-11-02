@@ -404,6 +404,7 @@ export default function ProfileForm() {
                                         {field.value ? field.value : <span className="text-muted-foreground">N/A</span>}
                                      </div>
                                   </FormControl>
+                                  <FormDescription>Para atualizar, registre no card abaixo.</FormDescription>
                                   <FormMessage />
                                 </FormItem>
                               )}
@@ -580,6 +581,33 @@ export default function ProfileForm() {
           </Form>
 
             <Card>
+                <CardHeader>
+                    <CardTitle className="font-headline">Registrar Peso</CardTitle>
+                    <CardDescription>
+                        Adicione uma nova medição de peso para acompanhar seu progresso. Isso também atualizará seu peso atual no perfil.
+                    </CardDescription>
+                </CardHeader>
+                 <form onSubmit={handleAddWeightMeasurement} ref={weightFormRef}>
+                    <CardContent>
+                        <div className="space-y-2">
+                            <Label htmlFor="newWeight">Novo Peso (kg)</Label>
+                            <Input
+                                id="newWeight"
+                                name="newWeight"
+                                type="number"
+                                step="0.1"
+                                placeholder="Ex: 84.5"
+                                required
+                            />
+                        </div>
+                    </CardContent>
+                    <CardFooter>
+                        <Button type="submit">Registrar Peso</Button>
+                    </CardFooter>
+                </form>
+            </Card>
+
+            <Card>
                 <form action={projectionAction}>
                     {/* Pass all form values from react-hook-form's state */}
                     <input type="hidden" name="currentWeight" value={form.watch('currentWeight') || ''} />
@@ -651,33 +679,6 @@ export default function ProfileForm() {
                             </p>
                             </div>
                         )}
-                    </CardFooter>
-                </form>
-            </Card>
-
-            <Card>
-                <CardHeader>
-                    <CardTitle className="font-headline">Registrar Peso</CardTitle>
-                    <CardDescription>
-                        Adicione uma nova medição de peso para acompanhar seu progresso. Isso também atualizará seu peso atual no perfil.
-                    </CardDescription>
-                </CardHeader>
-                 <form onSubmit={handleAddWeightMeasurement} ref={weightFormRef}>
-                    <CardContent>
-                        <div className="space-y-2">
-                            <Label htmlFor="newWeight">Novo Peso (kg)</Label>
-                            <Input
-                                id="newWeight"
-                                name="newWeight"
-                                type="number"
-                                step="0.1"
-                                placeholder="Ex: 84.5"
-                                required
-                            />
-                        </div>
-                    </CardContent>
-                    <CardFooter>
-                        <Button type="submit">Registrar Peso</Button>
                     </CardFooter>
                 </form>
             </Card>
