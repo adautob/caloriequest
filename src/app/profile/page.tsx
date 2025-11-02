@@ -5,6 +5,7 @@ import ProtectedPage from "@/components/auth/ProtectedPage";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import WeightHistory from "@/components/profile/WeightHistory";
 
 export default function ProfilePage() {
     return (
@@ -21,6 +22,7 @@ export default function ProfilePage() {
                         </Button>
                         <div className="grid gap-6">
                             <ProfileForm />
+                            <WeightHistory />
                         </div>
                     </div>
                 </main>
