@@ -2,11 +2,16 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer } from "@/components/ui/chart";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Dot } from 'recharts';
-import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase";
-import { collection, query, orderBy, doc } from "firebase/firestore";
-import type { WeightMeasurement, UserProfile } from "@/lib/types";
+import { useUser, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, orderBy } from "firebase/firestore";
+import type { WeightMeasurement } from "@/lib/types";
 import { Skeleton } from "../ui/skeleton";
 import { useMemo } from "react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Trash2 } from "lucide-react";
+import { deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { doc } from "firebase/firestore";
+import { useToast } from "@/hooks/use-toast";
 
 const chartConfig = {
   weight: {
@@ -15,20 +20,38 @@ const chartConfig = {
   },
 };
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label, onDelete }: any) => {
     if (active && payload && payload.length) {
         const data = payload[0].payload;
-        // Check if the data point is a placeholder, if so, don't show tooltip
         if (data.isPlaceholder) return null;
         
         const date = new Date(data.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
         
         return (
-            <div className="bg-popover text-popover-foreground rounded-lg border shadow-sm p-3">
+            <div className="bg-popover text-popover-foreground rounded-lg border shadow-sm p-3 flex items-center gap-2">
                 <div>
                     <p className="font-bold">{`${data.weight} kg`}</p>
                     <p className="text-sm text-muted-foreground">{date}</p>
                 </div>
+                 <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <button className="flex items-center justify-center h-8 w-8 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
+                        <Trash2 className="h-4 w-4" />
+                    </button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Você tem certeza?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Esta ação não pode ser desfeita. Isso excluirá permanentemente a medição de <strong>{data.weight}kg</strong> do dia <strong>{date}</strong>.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => onDelete(data.id)} className="bg-destructive hover:bg-destructive/90">Excluir</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
             </div>
         );
     }
@@ -55,12 +78,7 @@ const CustomActiveDot = (props: any) => {
 export default function WeightProgressChart() {
   const { user } = useUser();
   const firestore = useFirestore();
-
-  const userProfileRef = useMemoFirebase(() => {
-    if (!user || !firestore) return null;
-    return doc(firestore, `users/${user.uid}`);
-  }, [user, firestore]);
-  const { data: userProfile, isLoading: isProfileLoading } = useDoc<UserProfile>(userProfileRef);
+  const { toast } = useToast();
 
   const weightMeasurementsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
@@ -70,55 +88,49 @@ export default function WeightProgressChart() {
     );
   }, [user, firestore]);
 
-  const { data: rawChartData, isLoading: areMeasurementsLoading } = useCollection<WeightMeasurement>(weightMeasurementsQuery);
+  const { data: rawChartData, isLoading } = useCollection<WeightMeasurement>(weightMeasurementsQuery);
 
   const chartData = useMemo(() => {
     const today = new Date().toISOString();
     const measurements = rawChartData || [];
     
     // Case 1: No data anywhere
-    if (measurements.length === 0 && !userProfile?.currentWeight) {
+    if (measurements.length === 0) {
         return [];
     }
 
-    // Case 2: No measurements, but there is a currentWeight in the profile
-    if (measurements.length === 0 && userProfile?.currentWeight) {
-        const profileWeight = userProfile.currentWeight;
-        return [
-            { date: today, weight: profileWeight },
-            { date: today, weight: profileWeight, isPlaceholder: true }
-        ];
-    }
+    // Case 2: Only one measurement exists. We'll draw a flat line to today.
+    if (measurements.length === 1) {
+        const singleEntry = measurements[0];
+        const singleEntryDate = new Date(singleEntry.date).toDateString();
+        const todayDate = new Date().toDateString();
 
-    // Case 3: There are measurements
-    if (measurements.length > 0) {
-        // If there's only one measurement, extend a line to today
-        if (measurements.length === 1) {
-            const singleEntry = measurements[0];
-            const singleEntryDate = new Date(singleEntry.date).toDateString();
-            const todayDate = new Date().toDateString();
-
-            // If the single entry is not today, add a placeholder for today to draw the line
-            if (singleEntryDate !== todayDate) {
-                return [
-                    singleEntry,
-                    { date: today, weight: singleEntry.weight, isPlaceholder: true },
-                ];
-            }
-            // If it is from today, duplicate it to draw a point
-            return [singleEntry, { ...singleEntry, isPlaceholder: true }];
+        // If the single entry is not today, add a placeholder for today to draw the line
+        if (singleEntryDate !== todayDate) {
+            return [
+                singleEntry,
+                { date: today, weight: singleEntry.weight, isPlaceholder: true },
+            ];
         }
-        // If there are multiple measurements, just return them as is
-        return measurements;
+        // If it is from today, duplicate it to draw a point
+        return [singleEntry, { ...singleEntry, isPlaceholder: true }];
     }
-    
-    // Fallback for any other scenario
-    return [];
 
-  }, [rawChartData, userProfile]);
+    // Case 3: There are multiple measurements, just return them as is
+    return measurements;
 
-  const isLoading = isProfileLoading || areMeasurementsLoading;
+  }, [rawChartData]);
 
+  const handleDelete = (measurementId: string) => {
+    if (!user || !firestore || !measurementId) return;
+    const docRef = doc(firestore, `users/${user.uid}/weightMeasurements`, measurementId);
+    deleteDocumentNonBlocking(docRef);
+    toast({
+      title: 'Medição Excluída',
+      description: 'O registro de peso foi removido do seu histórico.',
+    });
+  };
+  
   if (isLoading) {
     return (
       <Card className="shadow-sm">
@@ -151,7 +163,7 @@ export default function WeightProgressChart() {
   const yDomainMax = chartData.length > 0 ? Math.max(...chartData.map(d => d.weight)) + 2 : 100;
 
   return (
-    <Card className="shadow-sm hover:shadow-md transition-shadow h-full">
+    <Card className="shadow-sm hover-shadow-md transition-shadow h-full">
       <CardHeader>
         <CardTitle className="font-headline">Progresso de Peso</CardTitle>
         <CardDescription>Seu peso ao longo do tempo.</CardDescription>
@@ -188,8 +200,9 @@ export default function WeightProgressChart() {
             />
             <RechartsTooltip
               cursor={{ stroke: 'hsl(var(--border))', strokeWidth: 1, strokeDasharray: '3 3' }}
-              content={<CustomTooltip />}
+              content={<CustomTooltip onDelete={handleDelete} />}
               wrapperStyle={{ outline: "none" }}
+              allowAsyncContent
             />
             <Line
               dataKey="weight"

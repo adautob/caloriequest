@@ -15,7 +15,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Loader2, Save, Wand2, Check, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useDoc, setDocumentNonBlocking, addDocumentNonBlocking, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, collection, serverTimestamp, getDocs, limit, query } from 'firebase/firestore';
 import { getGoalProjection, GoalProjectionState, validateProfile, ProfileFormData } from '@/app/actions';
 import type { UserProfile, UserAchievement } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
@@ -151,7 +151,21 @@ export default function ProfileForm() {
     const onSubmit = async (data: ProfileFormData) => {
         const result = await validateProfile(data);
 
-        if (result.success && result.data) {
+        if (result.success && result.data && user && firestore) {
+            // Save initial weight to history if it's the first time
+            if (result.data.currentWeight) {
+                const weightMeasurementsCollection = collection(firestore, `users/${user.uid}/weightMeasurements`);
+                const q = query(weightMeasurementsCollection, limit(1));
+                const snapshot = await getDocs(q);
+                if (snapshot.empty) { // This is the first weight entry
+                    addDocumentNonBlocking(weightMeasurementsCollection, {
+                        weight: result.data.currentWeight,
+                        date: new Date().toISOString(),
+                        createdAt: serverTimestamp(),
+                    });
+                }
+            }
+            
             if (userProfileRef) {
                 const { uid, ...profileData } = result.data;
                 const dataToSave: { [key: string]: any } = {};
