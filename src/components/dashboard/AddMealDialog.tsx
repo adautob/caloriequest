@@ -19,6 +19,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save } from "lucide-react";
 import { collection, serverTimestamp, query, where, Timestamp } from "firebase/firestore";
 import { UserAchievement } from "@/lib/types";
+import { useDashboard } from "./DashboardProvider";
+import { startOfDay } from "date-fns";
 
 const initialState: AddMealState = {
   message: null,
@@ -46,6 +48,7 @@ export default function AddMealDialog({ children }: { children: React.ReactNode 
   const [state, formAction] = useActionState(addMeal, initialState);
   const formRef = useRef<HTMLFormElement>(null);
   const [lastSuccessId, setLastSuccessId] = useState<string | null>(null);
+  const { selectedDate } = useDashboard();
 
 
   const userAchievementsRef = useMemoFirebase(() => {
@@ -74,10 +77,20 @@ export default function AddMealDialog({ children }: { children: React.ReactNode 
       // AI part was successful, now save to Firestore
       const mealsCollection = collection(firestore, `users/${user.uid}/meals`);
       
+      const mealDate = new Date();
+      mealDate.setHours(new Date().getHours());
+      mealDate.setMinutes(new Date().getMinutes());
+
+      // Use the selectedDate for the date part
+      const finalDate = new Date(selectedDate);
+      finalDate.setHours(mealDate.getHours());
+      finalDate.setMinutes(mealDate.getMinutes());
+
+
       addDocumentNonBlocking(mealsCollection, {
         ...state.nutritionalInfo,
-        date: new Date().toISOString(),
-        createdAt: serverTimestamp(),
+        date: finalDate.toISOString(),
+        createdAt: finalDate, // Use the selected date for creation timestamp
       });
       
       toast({
@@ -117,7 +130,7 @@ export default function AddMealDialog({ children }: { children: React.ReactNode 
         variant: "destructive",
       });
     }
-  }, [state, user, firestore, toast, userAchievementsRef, userAchievements, mealsToday, lastSuccessId]);
+  }, [state, user, firestore, toast, userAchievementsRef, userAchievements, mealsToday, lastSuccessId, selectedDate]);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
