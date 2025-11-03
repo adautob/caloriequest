@@ -51,13 +51,13 @@ export default function MacronutrientSummary() {
       }, { protein: 0, carbohydrates: 0, fat: 0, fiber: 0 });
       setTotals(newTotals);
 
-      const totalMacros = newTotals.protein + newTotals.carbohydrates + newTotals.fat; // Fiber not included in total for percentage breakdown
+      const totalMacros = newTotals.protein + newTotals.carbohydrates + newTotals.fat + newTotals.fiber;
       if (totalMacros > 0) {
         setPercentages({
           protein: (newTotals.protein / totalMacros) * 100,
           carbohydrates: (newTotals.carbohydrates / totalMacros) * 100,
           fat: (newTotals.fat / totalMacros) * 100,
-          fiber: (newTotals.fiber / GOALS.fiber) * 100, // Fiber percentage is based on its own goal
+          fiber: (newTotals.fiber / totalMacros) * 100,
         });
       } else {
         setPercentages({ protein: 0, carbohydrates: 0, fat: 0, fiber: 0 });
@@ -82,6 +82,13 @@ export default function MacronutrientSummary() {
         </CardContent>
       </Card>
     )
+  }
+
+  const roundedPercentages = {
+      protein: Math.round(percentages.protein),
+      carbohydrates: Math.round(percentages.carbohydrates),
+      fat: Math.round(percentages.fat),
+      fiber: Math.round(percentages.fiber),
   }
 
   return (
@@ -129,18 +136,18 @@ export default function MacronutrientSummary() {
         </div>
 
         <div className="flex pt-4">
-            <div className="flex items-center justify-center w-full">
-                <div style={{width: `${percentages.protein}%`}} className="bg-pink-500 text-center py-1 text-xs font-bold text-white rounded-l-full">
-                    {percentages.protein > 5 ? `${percentages.protein.toFixed(0)}%` : ''}
+            <div className="flex items-center justify-center w-full h-5 rounded-full overflow-hidden bg-muted">
+                <div style={{width: `${roundedPercentages.protein}%`}} className="bg-pink-500 h-full flex items-center justify-center text-xs font-bold text-white">
+                    {roundedPercentages.protein > 8 ? `${roundedPercentages.protein}%` : ''}
                 </div>
-                <div style={{width: `${percentages.carbohydrates}%`}} className="bg-blue-500 text-center py-1 text-xs font-bold text-white">
-                    {percentages.carbohydrates > 5 ? `${percentages.carbohydrates.toFixed(0)}%` : ''}
+                <div style={{width: `${roundedPercentages.carbohydrates}%`}} className="bg-blue-500 h-full flex items-center justify-center text-xs font-bold text-white">
+                    {roundedPercentages.carbohydrates > 8 ? `${roundedPercentages.carbohydrates}%` : ''}
                 </div>
-                <div style={{width: `${percentages.fat}%`}} className="bg-yellow-500 text-center py-1 text-xs font-bold text-white">
-                    {percentages.fat > 5 ? `${percentages.fat.toFixed(0)}%` : ''}
+                <div style={{width: `${roundedPercentages.fat}%`}} className="bg-yellow-500 h-full flex items-center justify-center text-xs font-bold text-white">
+                    {roundedPercentages.fat > 8 ? `${roundedPercentages.fat}%` : ''}
                 </div>
-                 <div style={{width: `${(percentages.fiber / 100) * (totals.protein + totals.carbohydrates + totals.fat)}%`}} className="bg-green-500 text-center py-1 text-xs font-bold text-white rounded-r-full">
-                    {percentages.fiber > 5 ? `${percentages.fiber.toFixed(0)}%` : ''}
+                <div style={{width: `${roundedPercentages.fiber}%`}} className="bg-green-500 h-full flex items-center justify-center text-xs font-bold text-white">
+                    {roundedPercentages.fiber > 8 ? `${roundedPercentages.fiber}%` : ''}
                 </div>
             </div>
         </div>
