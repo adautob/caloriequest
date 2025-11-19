@@ -17,10 +17,11 @@ import { addMeal, AddMealState } from "@/app/actions";
 import { useEffect, useState, useRef, useActionState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Save } from "lucide-react";
-import { collection, serverTimestamp, query, where, Timestamp } from "firebase/firestore";
+import { collection, serverTimestamp, query, where, Timestamp, doc } from "firebase/firestore";
 import { UserAchievement } from "@/lib/types";
 import { useDashboard } from "./DashboardProvider";
 import { startOfDay } from "date-fns";
+import { applyXpChange, XP_EVENTS } from "@/lib/game-mechanics";
 
 const initialState: AddMealState = {
   message: null,
@@ -93,9 +94,20 @@ export default function AddMealDialog({ children }: { children: React.ReactNode 
         createdAt: finalDate, // Use the selected date for creation timestamp
       });
       
-      toast({
-        title: "Sucesso!",
-        description: `"${state.nutritionalInfo.name}" adicionado com sucesso!`,
+      // Apply XP change
+      const userProfileRef = doc(firestore, `users/${user.uid}`);
+      applyXpChange(firestore, userProfileRef, XP_EVENTS.LOG_MEAL).then(({ levelledUp, newLevel }) => {
+        toast({
+          title: "Refeição Adicionada!",
+          description: `Você ganhou ${XP_EVENTS.LOG_MEAL} XP.`,
+        });
+        if (levelledUp) {
+          toast({
+            title: "Subiu de Nível!",
+            description: `Parabéns, você alcançou o nível ${newLevel}!`,
+            className: "bg-primary text-primary-foreground border-primary"
+          });
+        }
       });
 
       // Check for calorie-goal achievement

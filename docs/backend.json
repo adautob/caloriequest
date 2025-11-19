@@ -50,6 +50,19 @@
         "dailyCalorieGoal": {
           "type": "number",
           "description": "User's daily calorie goal in kcal."
+        },
+        "xp": {
+            "type": "number",
+            "description": "User's experience points."
+        },
+        "level": {
+            "type": "number",
+            "description": "User's current level."
+        },
+        "lastDailyXpCheck": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The last date the daily XP reward/penalty was calculated."
         }
       },
       "required": [

@@ -61,5 +61,8 @@ export type UserProfile = {
     activityLevel?: string;
     dietaryPreferences?: string;
     dailyCalorieGoal?: number;
+    xp?: number;
+    level?: number;
+    lastDailyXpCheck?: string; // ISO date string YYYY-MM-DD
 }
     

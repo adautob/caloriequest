@@ -8,6 +8,7 @@ import MacronutrientSummary from '@/components/dashboard/MacronutrientSummary';
 import DailyTip from '@/components/dashboard/DailyTip';
 import { DashboardProvider } from '@/components/dashboard/DashboardProvider';
 import DateNavigator from '@/components/dashboard/DateNavigator';
+import XPDisplay from '@/components/dashboard/XPDisplay';
 
 export default function Home() {
   return (
@@ -17,6 +18,9 @@ export default function Home() {
           <Header />
           <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-6 lg:p-8">
             <DateNavigator />
+            <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
+               <XPDisplay />
+            </div>
             <DailyTip />
             <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
               <CalorieSummary />

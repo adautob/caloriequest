@@ -19,6 +19,7 @@ import { doc, collection, serverTimestamp, getDocs, limit, query, orderBy, Times
 import { getGoalProjection, GoalProjectionState, validateProfile, ProfileFormData } from '@/app/actions';
 import type { UserProfile, UserAchievement, WeightMeasurement } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
+import { applyXpChange, XP_EVENTS } from '@/lib/game-mechanics';
 
 
 const profileFormSchema = z.object({
@@ -182,6 +183,21 @@ export default function ProfileForm() {
                         dataToSave[key] = value;
                     }
                 }
+
+                // If this is the very first time the user saves their profile
+                // and they provided a weight, add it to the history.
+                const weightMeasurementsCollection = collection(firestore, `users/${user.uid}/weightMeasurements`);
+                const snapshot = await getDocs(query(weightMeasurementsCollection, limit(1)));
+                if (snapshot.empty && currentWeight) {
+                     addDocumentNonBlocking(weightMeasurementsCollection, {
+                        weight: currentWeight,
+                        date: new Date().toISOString(),
+                        createdAt: serverTimestamp() as Timestamp,
+                    });
+                    // Also set it on the profile
+                    dataToSave.currentWeight = currentWeight;
+                }
+
                 setDocumentNonBlocking(userProfileRef, dataToSave, { merge: true });
             }
             toast({
@@ -251,6 +267,8 @@ export default function ProfileForm() {
         const weightMeasurementsCollection = collection(firestore, `users/${user.uid}/weightMeasurements`);
         const q = query(weightMeasurementsCollection, limit(1));
         const snapshot = await getDocs(q);
+        
+        let gaveXp = false;
 
         // This is the first ever weight entry for the user
         if (snapshot.empty) {
@@ -273,6 +291,24 @@ export default function ProfileForm() {
             date: new Date().toISOString(),
             createdAt: serverTimestamp() as Timestamp,
         });
+
+        // Apply XP change
+        if (userProfileRef) {
+            gaveXp = true;
+            applyXpChange(firestore, userProfileRef, XP_EVENTS.LOG_WEIGHT).then(({ levelledUp, newLevel }) => {
+                toast({
+                    title: "Peso Registrado!",
+                    description: `Você ganhou ${XP_EVENTS.LOG_WEIGHT} XP.`,
+                });
+                if (levelledUp) {
+                    toast({
+                        title: "Subiu de Nível!",
+                        description: `Parabéns, você alcançou o nível ${newLevel}!`,
+                        className: "bg-primary text-primary-foreground border-primary"
+                    });
+                }
+            });
+        }
         
         // Update current weight on profile
         if(userProfileRef){
@@ -295,10 +331,12 @@ export default function ProfileForm() {
             }
         }
 
-        toast({
-            title: "Peso Registrado!",
-            description: `Seu novo peso de ${weightValue} kg foi salvo.`,
-        });
+        if (!gaveXp) {
+             toast({
+                title: "Peso Registrado!",
+                description: `Seu novo peso de ${weightValue} kg foi salvo.`,
+            });
+        }
 
         weightFormRef.current?.reset();
     };

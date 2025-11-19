@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import DailyCheck from './DailyCheck';
 
 interface DashboardContextType {
   selectedDate: Date;
@@ -14,6 +15,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   return (
     <DashboardContext.Provider value={{ selectedDate, setSelectedDate }}>
+      <DailyCheck />
       {children}
     </DashboardContext.Provider>
   );
