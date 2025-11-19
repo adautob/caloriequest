@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { startOfDay, subDays, endOfDay } from 'date-fns';
@@ -23,8 +23,8 @@ export default function DailyCheck() {
 
   const { data: userProfile } = useDoc<UserProfile>(userProfileRef);
 
-  const yesterdayStart = startOfDay(subDays(new Date(), 1));
-  const yesterdayEnd = endOfDay(subDays(new Date(), 1));
+  const yesterdayStart = useMemo(() => startOfDay(subDays(new Date(), 1)), []);
+  const yesterdayEnd = useMemo(() => endOfDay(subDays(new Date(), 1)), []);
 
   const yesterdayMealsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
