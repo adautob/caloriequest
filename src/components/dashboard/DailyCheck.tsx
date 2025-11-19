@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useUser, useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
+import { useFirebase, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { startOfDay, subDays, endOfDay } from 'date-fns';
 import { applyXpChange, XP_EVENTS } from '@/lib/game-mechanics';
