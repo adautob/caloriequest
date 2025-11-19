@@ -15,7 +15,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Loader2, Save, Wand2, Check, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useDoc, setDocumentNonBlocking, addDocumentNonBlocking, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection, serverTimestamp, getDocs, limit, query, orderBy, Timestamp } from 'firebase/firestore';
+import { doc, collection, serverTimestamp, getDocs, limit, query, orderBy, Timestamp } from 'firestore';
 import { getGoalProjection, GoalProjectionState, validateProfile, ProfileFormData } from '@/app/actions';
 import type { UserProfile, UserAchievement, WeightMeasurement } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';

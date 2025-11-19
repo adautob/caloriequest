@@ -9,6 +9,7 @@ import type { UserAchievement } from "@/lib/types";
 import { achievementIcons } from "@/lib/data";
 import { allAchievements } from "@/lib/achievements";
 import { Skeleton } from "../ui/skeleton";
+import { useMemo } from "react";
 
 export default function AchievementList() {
   const { user } = useUser();
@@ -22,7 +23,7 @@ export default function AchievementList() {
   
   const isLoading = isLoadingUser;
 
-  const unlockedAchievementIds = useMemoFirebase(() => 
+  const unlockedAchievementIds = useMemo(() => 
     new Set(userAchievements?.map(a => a.achievementId))
   , [userAchievements]);
 
