@@ -15,7 +15,7 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Loader2, Save, Wand2, Check, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, useDoc, setDocumentNonBlocking, addDocumentNonBlocking, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection, serverTimestamp, getDocs, limit, query, orderBy, Timestamp } from 'firestore';
+import { doc, collection, serverTimestamp, getDocs, limit, query, orderBy, Timestamp } from 'firebase/firestore';
 import { getGoalProjection, GoalProjectionState, validateProfile, ProfileFormData } from '@/app/actions';
 import type { UserProfile, UserAchievement, WeightMeasurement } from '@/lib/types';
 import { Skeleton } from '../ui/skeleton';
@@ -176,27 +176,18 @@ export default function ProfileForm() {
         if (result.success && result.data && user && firestore) {
             if (userProfileRef) {
                 // Exclude weight from direct profile save, it's handled by weight history
-                const { uid, currentWeight, ...profileData } = result.data;
+                const { uid, ...profileData } = result.data;
                 const dataToSave: { [key: string]: any } = {};
                 for (const [key, value] of Object.entries(profileData)) {
                     if (value !== undefined) {
                         dataToSave[key] = value;
                     }
                 }
+                
+                // Don't save currentWeight directly from this form.
+                // It is now read-only and derived from the weight history.
+                delete dataToSave.currentWeight;
 
-                // If this is the very first time the user saves their profile
-                // and they provided a weight, add it to the history.
-                const weightMeasurementsCollection = collection(firestore, `users/${user.uid}/weightMeasurements`);
-                const snapshot = await getDocs(query(weightMeasurementsCollection, limit(1)));
-                if (snapshot.empty && currentWeight) {
-                     addDocumentNonBlocking(weightMeasurementsCollection, {
-                        weight: currentWeight,
-                        date: new Date().toISOString(),
-                        createdAt: serverTimestamp() as Timestamp,
-                    });
-                    // Also set it on the profile
-                    dataToSave.currentWeight = currentWeight;
-                }
 
                 setDocumentNonBlocking(userProfileRef, dataToSave, { merge: true });
             }
